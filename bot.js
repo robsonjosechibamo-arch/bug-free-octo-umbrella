@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 
 // Substitua SEU_TOKEN_AQUI pelo seu token do BotFather (mantenha as aspas)
-const TOKEN = '8813967882:AAEHIXyiZHLMcy6hHHYK51HInzB_zE4yqLw '; 
+const TOKEN = '8813967882:AAEHIXyiZHLMcy6hHHYK51HInzB_zE4yqLw; 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const SNI_PADRAO = 'd35a8meha201do.cloudfront.net';
