@@ -1,6 +1,10 @@
+const http = require('http');
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot online!\n');});
+s server.listen(process.env.PORT || 3000);
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
-
 // Substitua SEU_TOKEN_AQUI pelo seu token do BotFather (mantenha as aspas)
 const TOKEN = '8813967882:AAEHIXyiZHLMcy6hHHYK51HInzB_zE4yqLw'; 
 const bot = new TelegramBot(TOKEN, { polling: true });
