@@ -1,61 +1,51 @@
 const http = require('http');
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot online!\n');});
-s server.listen(process.env.PORT || 3000);
+  res.end('Bot online!\n');
+});
+server.listen(process.env.PORT || 3000);
+
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
-// Substitua SEU_TOKEN_AQUI pelo seu token do BotFather (mantenha as aspas)
-const TOKEN = '8813967882:AAEHIXyiZHLMcy6hHHYK51HInzB_zE4yqLw'; 
+
+const TOKEN = '8813967882:AAEHIXyiZHLMcy6hHHYK51HInzB_zE4yqLw';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
-const SNI_PADRAO = 'd35a8meha201do.cloudfront.net';
+// Seu payload exato inserido aqui sem nenhuma alteração
+const PAYLOAD_EXATO = "GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]";
 
-function gerarArquivoDark(sni, dias = 30) {
-  const config = {
-    name: `MyMuz_${dias}D`,
+const SNI_PADRAO = 'h.facebook.com';
+
+function gerarArquivoDark(cargaUtil, sni, dias = 30) {
+  const configurazione = {
+    nome: `MyMuz_${dias}D`,
     sni: sni,
-    payload: `GET / HTTP/1.1[crlf]Host: ${sni}[crlf]Upgrade: websocket[crlf][crlf]`,
-    mode: "SSL_PAYLOAD",
-    server: "127.0.0.1",
-    port: "80"
+    "carga útil": cargaUtil,
+    modo: "SSL_PAYLOAD",
+    servidor: "127.0.0.1",
+    porta: "80"
   };
-  
-  const jsonStr = JSON.stringify(config);
-  const base64Data = Buffer.from(jsonStr).toString('base64');
-  const fileName = `mymuz_${dias}dias.dark`;
-  
-  fs.writeFileSync(fileName, base64Data);
-  return fileName;
+
+  const jsonStr = JSON.stringify(configurazione);
+  const dadosBase46 = Buffer.from(jsonStr).toString('base64');
+  const nome_do_arquivo = `mymuz_${dias}dias.dark`;
+
+  fs.writeFileSync(nome_do_arquivo, dadosBase46);
+  return nome_do_arquivo;
 }
 
-bot.onText(/\/start|\/menu/, (msg) => {
+bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  const opts = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🚀 Gerar Arquivo MyMuz (.dark)', callback_data: 'gerar_dark' }],
-        [{ text: '👤 Criar Conta Premium', callback_data: 'criar_conta' }],
-        [{ text: '📞 Suporte', callback_data: 'suporte' }]
-      ]
-    }
-  };
-  bot.sendMessage(chatId, '🤖 *Bem-vindo ao Bot MyMuz!*\nEscolha uma opção no menu abaixo:', { parse_mode: 'Markdown', ...opts });
+  bot.sendMessage(chatId, "Olá! Envie /gerar para criar o seu arquivo Dark Tunnel com o payload personalizado.");
 });
 
-bot.on('callback_query', async (query) => {
-  const chatId = query.message.chat.id;
+bot.onText(/\/gerar/, (msg) => {
+  const chatId = msg.chat.id;
+  const arquivo = gerarArquivoDark(PAYLOAD_EXATO, SNI_PADRAO, 30);
   
-  if (query.data === 'gerar_dark') {
-    const arquivo = gerarArquivoDark(SNI_PADRAO, 30);
-    await bot.sendDocument(chatId, arquivo, {
-      caption: `✅ *Arquivo MyMuz Gerado com Sucesso!*\n\n🔹 *SNI:* \`${SNI_PADRAO}\`\n🔹 *Validade:* 30 Dias\n\nImporte o arquivo direto no aplicativo Dark Tunnel.`,
-      parse_mode: 'Markdown'
-    });
-    if (fs.existsSync(arquivo)) fs.unlinkSync(arquivo);
-  } else if (query.data === 'criar_conta') {
-    bot.sendMessage(chatId, '🔑 Para criar uma conta premium, entre em contato com o suporte.');
-  } else if (query.data === 'suporte') {
-    bot.sendMessage(chatId, '💬 Suporte técnico disponível. Envie sua dúvida aqui!');
-  }
+  bot.sendDocument(chatId, arquivo).then(() => {
+    fs.unlinkSync(arquivo);
+  });
 });
+
+console.log('Bot rodando com sucesso!');
