@@ -4,9 +4,6 @@ const TelegramBot = require('node-telegram-bot-api');
 const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
 const bot = new TelegramBot(TOKEN);
 
-// --- COLOCA AQUI O TEU ID DE TELEGRAM ---
-const ADMIN_ID = 8695108674; // Substitui pelo teu ID numérico real
-
 const PORT = process.env.PORT || 3000;
 const URL = process.env.RENDER_EXTERNAL_URL || 'https://bug-free-octo-umbrella-1.onrender.com';
 
@@ -25,142 +22,150 @@ const server = http.createServer((req, res) => {
         });
     } else {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('Bot DarkTunnel Online!\n');
+        res.end('Bot de Jogos Online!\n');
     }
 });
 
 server.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`Servidor de jogos rodando na porta ${PORT}`);
 });
 
-// Listas de servidores
-let servidoresGratis = [
-    { ip: "45.134.9.133", porta: "443", user: "u5816912004", pass: "Robson654", validade: "3 Dias" }
+// Base de dados simulada em memória para pontuações e histórico por usuário
+const pontuacoes = {}; // { chatId: pontos }
+const ultimosJogos = {}; // { chatId: [id_do_jogo_anterior] }
+
+// Lista ampla de jogos e desafios para evitar repetição
+const bancoDeJogos = [
+    {
+        id: 'mat_1',
+        pergunta: '🧮 **Desafio Matemático**\nQuanto é `15 * 4 - 10`?',
+        resposta: '50'
+    },
+    {
+        id: 'geo_1',
+        pergunta: '🌍 **Geografia**\nQual é o país cuja capital é Tóquio?',
+        resposta: 'japao'
+    },
+    {
+        id: 'adv_1',
+        pergunta: '🧩 **Adivinhação**\nO que é, o que é: Tem capa mas não é livro, tem dentes mas não bite?',
+        resposta: 'alho'
+    },
+    {
+        id: 'qui_1',
+        pergunta: '⚗️ **Química & Ciências**\nQual é a fórmula química da água?',
+        resposta: 'h2o'
+    },
+    {
+        id: 'prog_1',
+        pergunta: '💻 **Tecnologia**\nEm programação, como chamamos um bloco de código reutilizável que executa uma tarefa específica?',
+        resposta: 'funcao'
+    },
+    {
+        id: 'mat_2',
+        pergunta: '🧮 **Desafio Matemático**\nQual é a raiz quadrada de 144?',
+        resposta: '12'
+    },
+    {
+        id: 'hist_1',
+        pergunta: '📜 **História**\nEm que ano terminou a Segunda Guerra Mundial?',
+        resposta: '1945'
+    },
+    {
+        id: 'pop_1',
+        pergunta: '🎬 **Cultura Pop**\nQual é o nome do super-herói da Marvel conhecido como o Homem de Ferro?',
+        resposta: 'tony stark'
+    }
 ];
 
-let servidoresVip30Dias = [];
-
-// --- COMANDO ADICIONAR GRÁTIS (APENAS ADMIN) ---
-bot.onText(/\/addgratis (.+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-
-    if (userId !== ADMIN_ID) {
-        return bot.sendMessage(chatId, '❌ Não tens permissão para usar este comando!');
-    }
-
-    const dados = match[1].split(' ');
-    if (dados.length < 5) {
-        return bot.sendMessage(chatId, '❌ Formato errado!\nUse: `/addgratis IP PORTA UTILIZADOR SENHA VALIDADE`', { parse_mode: 'Markdown' });
-    }
-
-    const conta = { ip: dados[0], porta: dados[1], user: dados[2], pass: dados[3], validade: dados[4] };
-    servidoresGratis.push(conta);
-    bot.sendMessage(chatId, `✅ Conta GRÁTIS adicionada!\nTotal grátis: *${servidoresGratis.length}*`, { parse_mode: 'Markdown' });
-});
-
-// --- COMANDO ADICIONAR VIP (APENAS ADMIN) ---
-bot.onText(/\/addvip (.+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-
-    if (userId !== ADMIN_ID) {
-        return bot.sendMessage(chatId, '❌ Não tens permissão para usar este comando!');
-    }
-
-    const dados = match[1].split(' ');
-    if (dados.length < 4) {
-        return bot.sendMessage(chatId, '❌ Formato errado!\nUse: `/addvip IP PORTA UTILIZADOR SENHA`', { parse_mode: 'Markdown' });
-    }
-
-    const conta = { ip: dados[0], porta: dados[1], user: dados[2], pass: dados[3], validade: "30 Dias (VIP)" };
-    servidoresVip30Dias.push(conta);
-    bot.sendMessage(chatId, `💎 Conta VIP (30 Dias) adicionada!\nTotal VIP: *${servidoresVip30Dias.length}*`, { parse_mode: 'Markdown' });
-});
-
-// Menu Principal
+// Comando /start para iniciar
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    
+    if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
+
     const teclado = {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🆓 Servidor Grátis (Payload)', callback_data: 'gratis_payload' }],
-                [{ text: '🛡️ Servidor Grátis (SNI Cloudfront)', callback_data: 'gratis_sni_cloudfront' }],
-                [{ text: '🌐 Servidor Grátis (SNI Mymuze)', callback_data: 'gratis_sni_mymuze' }],
-                [{ text: '💎 Servidor VIP 30 Dias (Pago - 20 MT)', callback_data: 'vip_info' }]
+                [{ text: '🎮 Jogar / Novo Desafio', callback_data: 'proximo_jogo' }],
+                [{ text: '🏆 Ver Meus Pontos', callback_data: 'ver_pontos' }]
             ]
         }
     };
 
-    bot.sendMessage(chatId, '🤖 *Painel DarkTunnel HSS*\n\nEscolha uma opção de configuração abaixo:', { parse_mode: 'Markdown', ...teclado });
+    bot.sendMessage(chatId, '🤖 *Bem-vindo ao Bot de Desafios e Jogos!*\n\nResponda corretamente aos enigmas e perguntas para acumular pontos. Clique abaixo para começar:', { parse_mode: 'Markdown', ...teclado });
 });
 
-// Processar Botões
+// Processar cliques nos botões e respostas via chat
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
 
-    if (acao === 'vip_info') {
-        const textoVip = `💎 *Servidor VIP - 30 Dias*\n\n` +
-                         `• *Preço:* 20 MT\n` +
-                         `• *Validade:* 30 Dias de acesso contínuo.\n\n` +
-                         `📲 *Como comprar:*\n` +
-                         `Faça o pagamento de *20 MT* para o número:\n` +
-                         `👉 \`853961088\`\n\n` +
-                         `Após pagar, envie o comprovativo para o administrador para receber os seus dados VIP!`;
+    if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
+
+    if (acao === 'ver_pontos') {
+        bot.answerCallbackQuery(query.id);
+        return bot.sendMessage(chatId, `🏆 Tens atualmente *${pontuacoes[chatId]}* pontos!`, { parse_mode: 'Markdown' });
+    }
+
+    if (acao === 'proximo_jogo') {
+        // Inicializar histórico de jogos do chat se não existir
+        if (!ultimosJogos[chatId]) ultimosJogos[chatId] = [];
+
+        // Filtrar jogos para não repetir os últimos 3 jogados recentemente
+        const jogosDisponiveis = bancoDeJogos.filter(j => !ultimosJogos[chatId].includes(j.id));
         
-        return bot.sendMessage(chatId, textoVip, { parse_mode: 'Markdown' });
+        // Se esgotar o filtro, limpa o histórico para recomeçar o ciclo
+        const pool = jogosDisponiveis.length > 0 ? jogosDisponiveis : bancoDeJogos;
+        
+        const jogoSorteado = pool[Math.floor(Math.random() * pool.length)];
+
+        // Guardar no histórico recente (mantém os últimos 3)
+        ultimosJogos[chatId].push(jogoSorteado.id);
+        if (ultimosJogos[chatId].length > 3) {
+            ultimosJogos[chatId].shift();
+        }
+
+        // Guardar qual é a resposta correta associada a este chat temporariamente
+        bot[chatId] = { respostaAtual: jogoSorteado.resposta };
+
+        bot.answerCallbackQuery(query.id);
+        return bot.sendMessage(chatId, `${jogoSorteado.pergunta}\n\n💬 *Responda diretamente nesta conversa com a sua resposta!*`, { parse_mode: 'Markdown' });
     }
+});
 
-    if (servidoresGratis.length === 0) {
-        return bot.sendMessage(chatId, '⚠️ De momento não há servidores grátis disponíveis. Tente mais tarde.');
+// Capturar respostas de texto enviadas pelos utilizadores
+bot.on('message', (msg) => {
+    const chatId = msg.chat.id;
+    const texto = msg.text ? msg.text.trim().toLowerCase() : '';
+
+    // Ignorar se for comando
+    if (texto.startsWith('/')) return;
+
+    // Verificar se há um jogo ativo aguardando resposta neste chat
+    if (bot[chatId] && bot[chatId].respostaAtual) {
+        const respostaCerta = bot[chatId].respostaAtual;
+
+        if (texto === respostaCerta) {
+            pontuacoes[chatId] += 10; // Adiciona 10 pontos por acerto
+            bot[chatId].respostaAtual = null; // Limpa o desafio atual
+
+            const tecladoNovoJogo = {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '➡️ Próximo Desafio', callback_data: 'proximo_jogo' }],
+                        [{ text: '🏆 Ver Pontuação', callback_data: 'ver_pontos' }]
+                    ]
+                }
+            };
+
+            bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste em cheio!**\n+10 pontos adicionados. Pontuação total: *${pontuacoes[chatId]}*`, { parse_mode: 'Markdown', ...tecladoNovoJogo });
+        } else {
+            bot.sendMessage(chatId, '❌ **Resposta incorreta!** Tenta novamente ou clica abaixo para pedir outro desafio.', {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [[{ text: '🔄 Tentar Outro Jogo', callback_data: 'proximo_jogo' }]]
+                }
+            });
+        }
     }
-
-    const indiceAleatorio = Math.floor(Math.random() * servidoresGratis.length);
-const conta = servidoresGratis[indiceAleatorio];
-
- 
-
-    if (acao === 'gratis_payload') {
-        const payload = "GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]";
-
-        const texto = `🆓 *Configuração Grátis (Payload)*\n\n` +
-                      `🖥️ *Host/IP:* \`${conta.ip}\`\n` +
-                      `🔌 *Porta:* \`${conta.porta}\`\n` +
-                      `👤 *Utilizador:* \`${conta.user}\`\n` +
-                      `🔑 *Senha:* \`${conta.pass}\`\n` +
-                      `⏳ *Validade:* \`${conta.validade}\`\n\n` +
-                      `📝 *Payload (toque para copiar):*\n\`${payload}\``;
-
-        bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-    } 
-    else if (acao === 'gratis_sni_cloudfront') {
-        const sni = "d35a8meha201do.cloudfront.net";
-
-        const texto = `🛡️ *Configuração Grátis (SNI Cloudfront)*\n\n` +
-                      `🖥️ *Host/IP:* \`${conta.ip}\`\n` +
-                      `🔌 *Porta:* \`${conta.porta}\`\n` +
-                      `👤 *Utilizador:* \`${conta.user}\`\n` +
-                      `🔑 *Senha:* \`${conta.pass}\`\n` +
-                      `⏳ *Validade:* \`${conta.validade}\`\n\n` +
-                      `🌐 *SNI (toque para copiar):*\n\`${sni}\``;
-
-        bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-    }
-    else if (acao === 'gratis_sni_mymuze') {
-        const sni = "mymuze.vm.co.mz";
-
-        const texto = `🌐 *Configuração Grátis (SNI Mymuze)*\n\n` +
-                      `🖥️ *Host/IP:* \`${conta.ip}\`\n` +
-                      `🔌 *Porta:* \`${conta.porta}\`\n` +
-                      `👤 *Utilizador:* \`${conta.user}\`\n` +
-                      `🔑 *Senha:* \`${conta.pass}\`\n` +
-                      `⏳ *Validade:* \`${conta.validade}\`\n\n` +
-                      `🌐 *SNI (toque para copiar):*\n\`${sni}\``;
-
-        bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-    }
-
-    bot.answerCallbackQuery(query.id);
 });
