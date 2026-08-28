@@ -1,7 +1,6 @@
 {
-  "name": "bot-telegram-dark",
+  "name": "bot-darktunnel",
   "version": "1.0.0",
-  "description": "Bot Telegram",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
