@@ -25,12 +25,35 @@ const server = http.createServer((req, res) => {
 
 server.listen(process.env.PORT || 3000);
 
-// --- LISTA DE SERVIDORES / CONTAS SSH ---
-const listaServidores = [
-    { id: 1, ip: "45.134.9.133", porta: "443", user: "u5816912004", pass: "Robson654", status: "Online 🟢" },
-    { id: 2, ip: "45.134.9.133", porta: "80", user: "u5816912004", pass: "Robson654", status: "Online 🟢" }
-    // Pode adicionar mais servidores aqui se quiser no futuro!
-];
+// --- FUNÇÃO PARA GERAR DADOS DINÂMICOS E ALEATÓRIOS ---
+function gerarContaAleatoria() {
+    // Lista de IPs de servidores base (podes adicionar quantos quiseres aqui)
+    const baseIPs = [
+        "45.134.9.133",
+        "185.199.108.153",
+        "104.21.65.22",
+        "190.92.210.11"
+    ];
+
+    // Portas comuns para túnel
+    const portas = ["443", "80", "8080", "22", "8443"];
+
+    // Gerar username e senha automáticos
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const userGerado = `hss_user_${randomNum}`;
+    const passGerada = `pass_${Math.random().toString(36.substring(2, 8))}`;
+    
+    // Escolher IP e porta aleatórios
+    const ipEscolhido = baseIPs[Math.floor(Math.random() * baseIPs.length)];
+    const portaEscolhida = portas[Math.floor(Math.random() * portas.length)];
+
+    return {
+        ip: ipEscolhido,
+        porta: portaEscolhida,
+        user: userGerado,
+        pass: passGerada
+    };
+}
 
 // --- MENU PRINCIPAL /START ---
 bot.onText(/\/start/, (msg) => {
@@ -39,71 +62,47 @@ bot.onText(/\/start/, (msg) => {
     const menuTeclado = {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '⚙️ Ver Dados de Payload (DarkTunnel)', callback_data: 'info_payload' }],
-                [{ text: '🛡️ Ver Dados de SNI (DarkTunnel)', callback_data: 'info_sni' }],
-                [{ text: '🖥️ Ver Servidores Disponíveis', callback_data: 'listar_servidores' }],
+                [{ text: '⚙️ Gerar Nova Conta & Payload', callback_data: 'gerar_novo_payload' }],
+                [{ text: '🛡️ Gerar Nova Conta & SNI', callback_data: 'gerar_novo_sni' }],
                 [{ text: '📞 Contactos de Suporte', callback_data: 'suporte' }]
             ]
         }
     };
 
-    bot.sendMessage(chatId, '🤖 *Painel DarkTunnel HSS*\n\nEscolha o que deseja consultar para copiar e colar no aplicativo:', { parse_mode: 'Markdown', ...menuTeclado });
+    bot.sendMessage(chatId, '🤖 *Painel DarkTunnel HSS*\n\nClique abaixo para gerar dados dinâmicos e contas automáticas:', { parse_mode: 'Markdown', ...menuTeclado });
 });
-
-// --- COMANDO /servidores (Também acessível por texto) ---
-bot.onText(/\/servidores/, (msg) => {
-    const chatId = msg.chat.id;
-    enviarListaServidores(chatId);
-});
-
-function enviarListaServidores(chatId) {
-    let textoServidores = '🖥️ *Lista de Servidores SSH Ativos:*\n\n';
-    
-    listaServidores.forEach(srv => {
-        textoServidores += `🔹 *Servidor #${srv.id}*\n` +
-                           `   • IP: \`${srv.ip}\`\n` +
-                           `   • Porta: \`${srv.porta}\`\n` +
-                           `   • Utilizador: \`${srv.user}\`\n` +
-                           `   • Status: ${srv.status}\n\n`;
-    });
-
-    bot.sendMessage(chatId, textoServidores, { parse_mode: 'Markdown' });
-}
 
 // --- PROCESSAMENTO DOS BOTÕES ---
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
 
-    // Sorteia ou pega um servidor da lista para a configuração
-    const srv = listaServidores[Math.floor(Math.random() * listaServidores.length)];
+    // Gera uma nova conta totalmente aleatória a cada clique
+    const novaConta = gerarContaAleatoria();
 
-    if (acao === 'info_payload') {
+    if (acao === 'gerar_novo_payload') {
         const payloadTexto = "GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]";
 
-        const resposta = `⚙️ *Configuração Payload (DarkTunnel)*\n\n` +
-                         `🖥️ *Host/IP:* \`${srv.ip}\`\n` +
-                         `🔌 *Porta:* \`${srv.porta}\`\n` +
-                         `👤 *Utilizador:* \`${srv.user}\`\n` +
-                         `🔑 *Senha:* \`${srv.pass}\`\n\n` +
+        const resposta = `⚙️ *Nova Conta Payload Gerada*\n\n` +
+                         `🖥️ *Host/IP:* \`${novaConta.ip}\`\n` +
+                         `🔌 *Porta:* \`${novaConta.porta}\`\n` +
+                         `👤 *Utilizador:* \`${novaConta.user}\`\n` +
+                         `🔑 *Senha:* \`${novaConta.pass}\`\n\n` +
                          `📝 *Payload (toque para copiar):*\n\`${payloadTexto}\``;
 
         bot.sendMessage(chatId, resposta, { parse_mode: 'Markdown' });
     } 
-    else if (acao === 'info_sni') {
+    else if (acao === 'gerar_novo_sni') {
         const sniTexto = "mymuze.vm.co.mz";
 
-        const resposta = `🛡️ *Configuração SNI (DarkTunnel)*\n\n` +
-                         `🖥️ *Host/IP:* \`${srv.ip}\`\n` +
-                         `🔌 *Porta:* \`${srv.porta}\`\n` +
-                         `👤 *Utilizador:* \`${srv.user}\`\n` +
-                         `🔑 *Senha:* \`${srv.pass}\`\n\n` +
+        const resposta = `🛡️ *Nova Conta SNI Gerada*\n\n` +
+                         `🖥️ *Host/IP:* \`${novaConta.ip}\`\n` +
+                         `🔌 *Porta:* \`${novaConta.porta}\`\n` +
+                         `👤 *Utilizador:* \`${novaConta.user}\`\n` +
+                         `🔑 *Senha:* \`${novaConta.pass}\`\n\n` +
                          `🌐 *SNI (toque para copiar):*\n\`${sniTexto}\``;
 
         bot.sendMessage(chatId, resposta, { parse_mode: 'Markdown' });
-    }
-    else if (acao === 'listar_servidores') {
-        enviarListaServidores(chatId);
     }
     else if (acao === 'suporte') {
         bot.sendMessage(chatId, '📞 Para suporte técnico, contacte o administrador.');
@@ -112,4 +111,4 @@ bot.on('callback_query', (query) => {
     bot.answerCallbackQuery(query.id);
 });
 
-console.log('Bot de texto e servidores rodando com sucesso!');
+console.log('Bot gerador de contas dinâmicas rodando!');
