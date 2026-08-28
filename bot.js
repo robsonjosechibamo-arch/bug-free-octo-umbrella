@@ -117,7 +117,8 @@ bot.on('callback_query', (query) => {
         return bot.sendMessage(chatId, '⚠️ De momento não há servidores grátis disponíveis. Tente mais tarde.');
     }
 
-    const conta = servidoresGratis[0];
+    const conta = servidoresGratis[servidoresGratis.length - 1];
+ 
 
     if (acao === 'gratis_payload') {
         const payload = "GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]";
