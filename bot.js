@@ -117,7 +117,9 @@ bot.on('callback_query', (query) => {
         return bot.sendMessage(chatId, '⚠️ De momento não há servidores grátis disponíveis. Tente mais tarde.');
     }
 
-    const conta = servidoresGratis[servidoresGratis.length - 1];
+    const indiceAleatorio = Math.floor(Math.random() * servidoresGratis.length);
+const conta = servidoresGratis[indiceAleatorio];
+
  
 
     if (acao === 'gratis_payload') {
