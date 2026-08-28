@@ -22,7 +22,7 @@ const server = http.createServer((req, res) => {
         });
     } else {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('Bot de Jogos Online!\n');
+        res.end('Bot de Jogos com Opções Online!\n');
     }
 });
 
@@ -30,55 +30,75 @@ server.listen(PORT, () => {
     console.log(`Servidor de jogos rodando na porta ${PORT}`);
 });
 
-// Base de dados simulada em memória para pontuações e histórico por usuário
 const pontuacoes = {}; // { chatId: pontos }
 const ultimosJogos = {}; // { chatId: [id_do_jogo_anterior] }
+const jogoAtualPorChat = {}; // { chatId: { respostaCerta } }
 
-// Lista ampla de jogos e desafios para evitar repetição
+// Banco de jogos com perguntas e opções de resposta
 const bancoDeJogos = [
     {
         id: 'mat_1',
         pergunta: '🧮 **Desafio Matemático**\nQuanto é `15 * 4 - 10`?',
-        resposta: '50'
+        opcoes: [
+            { texto: '40', valor: 'errado1' },
+            { texto: '50', valor: 'certo' },
+            { texto: '60', valor: 'errado2' }
+        ],
+        respostaCerta: 'certo'
     },
     {
         id: 'geo_1',
         pergunta: '🌍 **Geografia**\nQual é o país cuja capital é Tóquio?',
-        resposta: 'japao'
+        opcoes: [
+            { texto: 'China', valor: 'errado1' },
+            { texto: 'Coreia do Sul', valor: 'errado2' },
+            { texto: 'Japão', valor: 'certo' }
+        ],
+        respostaCerta: 'certo'
     },
     {
         id: 'adv_1',
         pergunta: '🧩 **Adivinhação**\nO que é, o que é: Tem capa mas não é livro, tem dentes mas não bite?',
-        resposta: 'alho'
+        opcoes: [
+            { texto: 'Alho', valor: 'certo' },
+            { texto: 'Pente', valor: 'errado1' },
+            { texto: 'Tubarão', valor: 'errado2' }
+        ],
+        respostaCerta: 'certo'
     },
     {
         id: 'qui_1',
         pergunta: '⚗️ **Química & Ciências**\nQual é a fórmula química da água?',
-        resposta: 'h2o'
+        opcoes: [
+            { texto: 'CO2', valor: 'errado1' },
+            { texto: 'H2O', valor: 'certo' },
+            { texto: 'NaCl', valor: 'errado2' }
+        ],
+        respostaCerta: 'certo'
     },
     {
         id: 'prog_1',
-        pergunta: '💻 **Tecnologia**\nEm programação, como chamamos um bloco de código reutilizável que executa uma tarefa específica?',
-        resposta: 'funcao'
-    },
-    {
-        id: 'mat_2',
-        pergunta: '🧮 **Desafio Matemático**\nQual é a raiz quadrada de 144?',
-        resposta: '12'
+        pergunta: '💻 **Tecnologia**\nEm programação, como chamamos um bloco de código reutilizável?',
+        opcoes: [
+            { texto: 'Variável', valor: 'errado1' },
+            { texto: 'Função', valor: 'certo' },
+            { texto: 'Loop', valor: 'errado2' }
+        ],
+        respostaCerta: 'certo'
     },
     {
         id: 'hist_1',
         pergunta: '📜 **História**\nEm que ano terminou a Segunda Guerra Mundial?',
-        resposta: '1945'
-    },
-    {
-        id: 'pop_1',
-        pergunta: '🎬 **Cultura Pop**\nQual é o nome do super-herói da Marvel conhecido como o Homem de Ferro?',
-        resposta: 'tony stark'
+        opcoes: [
+            { texto: '1945', valor: 'certo' },
+            { texto: '1939', valor: 'errado1' },
+            { texto: '1950', valor: 'errado2' }
+        ],
+        respostaCerta: 'certo'
     }
 ];
 
-// Comando /start para iniciar
+// Comando /start
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
@@ -92,10 +112,10 @@ bot.onText(/\/start/, (msg) => {
         }
     };
 
-    bot.sendMessage(chatId, '🤖 *Bem-vindo ao Bot de Desafios e Jogos!*\n\nResponda corretamente aos enigmas e perguntas para acumular pontos. Clique abaixo para começar:', { parse_mode: 'Markdown', ...teclado });
+    bot.sendMessage(chatId, '🤖 *Bem-vindo ao Bot de Desafios com Opções!*\n\nResponda aos desafios escolhendo uma das opções em botões para acumular pontos:', { parse_mode: 'Markdown', ...teclado });
 });
 
-// Processar cliques nos botões e respostas via chat
+// Processar ações dos botões
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
@@ -108,59 +128,66 @@ bot.on('callback_query', (query) => {
     }
 
     if (acao === 'proximo_jogo') {
-        // Inicializar histórico de jogos do chat se não existir
         if (!ultimosJogos[chatId]) ultimosJogos[chatId] = [];
 
-        // Filtrar jogos para não repetir os últimos 3 jogados recentemente
+        // Filtrar para não repetir os últimos jogos
         const jogosDisponiveis = bancoDeJogos.filter(j => !ultimosJogos[chatId].includes(j.id));
-        
-        // Se esgotar o filtro, limpa o histórico para recomeçar o ciclo
         const pool = jogosDisponiveis.length > 0 ? jogosDisponiveis : bancoDeJogos;
         
         const jogoSorteado = pool[Math.floor(Math.random() * pool.length)];
 
-        // Guardar no histórico recente (mantém os últimos 3)
+        // Guardar no histórico
         ultimosJogos[chatId].push(jogoSorteado.id);
         if (ultimosJogos[chatId].length > 3) {
             ultimosJogos[chatId].shift();
         }
 
-        // Guardar qual é a resposta correta associada a este chat temporariamente
-        bot[chatId] = { respostaAtual: jogoSorteado.resposta };
+        // Registar qual é a resposta certa para este chat
+        jogoAtualPorChat[chatId] = { respostaCerta: jogoSorteado.respostaCerta };
+
+        // Criar botões com as opções baralhadas ou ordenadas do jogo
+        const botoesOpcoes = jogoSorteado.opcoes.map(opcao => {
+            return [{ text: opcao.texto, callback_data: `resp_${opcao.valor}` }];
+        });
+
+        // Adicionar botão extra para pular ou ver pontos
+        botoesOpcoes.push([{ text: '🏆 Ver Pontuação', callback_data: 'ver_pontos' }]);
 
         bot.answerCallbackQuery(query.id);
-        return bot.sendMessage(chatId, `${jogoSorteado.pergunta}\n\n💬 *Responda diretamente nesta conversa com a sua resposta!*`, { parse_mode: 'Markdown' });
+        return bot.sendMessage(chatId, `${jogoSorteado.pergunta}\n\n👇 *Escolha uma das opções abaixo:*`, {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: botoesOpcoes }
+        });
     }
-});
 
-// Capturar respostas de texto enviadas pelos utilizadores
-bot.on('message', (msg) => {
-    const chatId = msg.chat.id;
-    const texto = msg.text ? msg.text.trim().toLowerCase() : '';
+    // Processar cliques nas opções de resposta
+    if (acao.startsWith('resp_')) {
+        const escolhaUsuario = acao.replace('resp_', '');
+        const dadosJogo = jogoAtualPorChat[chatId];
 
-    // Ignorar se for comando
-    if (texto.startsWith('/')) return;
+        if (!dadosJogo) {
+            bot.answerCallbackQuery(query.id, { text: '⚠️ Este desafio já expirou. Clica em novo jogo!' });
+            return;
+        }
 
-    // Verificar se há um jogo ativo aguardando resposta neste chat
-    if (bot[chatId] && bot[chatId].respostaAtual) {
-        const respostaCerta = bot[chatId].respostaAtual;
+        const tecladoProximo = {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '➡️ Próximo Desafio', callback_data: 'proximo_jogo' }],
+                    [{ text: '🏆 Ver Pontuação', callback_data: 'ver_pontos' }]
+                ]
+            }
+        };
 
-        if (texto === respostaCerta) {
-            pontuacoes[chatId] += 10; // Adiciona 10 pontos por acerto
-            bot[chatId].respostaAtual = null; // Limpa o desafio atual
+        if (escolhaUsuario === dadosJogo.respostaCerta) {
+            pontuacoes[chatId] += 10;
+            delete jogoAtualPorChat[chatId]; // Limpa a questão ativa
 
-            const tecladoNovoJogo = {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '➡️ Próximo Desafio', callback_data: 'proximo_jogo' }],
-                        [{ text: '🏆 Ver Pontuação', callback_data: 'ver_pontos' }]
-                    ]
-                }
-            };
-
-            bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste em cheio!**\n+10 pontos adicionados. Pontuação total: *${pontuacoes[chatId]}*`, { parse_mode: 'Markdown', ...tecladoNovoJogo });
+            bot.answerCallbackQuery(query.id, { text: '🎉 Resposta Correta! +10 pontos' });
+            bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste em cheio!**\n+10 pontos adicionados. Pontuação total: *${pontuacoes[chatId]}*`, { parse_mode: 'Markdown', ...tecladoProximo });
         } else {
-            bot.sendMessage(chatId, '❌ **Resposta incorreta!** Tenta novamente ou clica abaixo para pedir outro desafio.', {
+            bot.answerCallbackQuery(query.id, { text: '❌ Resposta Errada!' });
+            bot.sendMessage(chatId, `❌ **Resposta incorreta!** Tenta novamente um novo desafio.`, {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [[{ text: '🔄 Tentar Outro Jogo', callback_data: 'proximo_jogo' }]]
