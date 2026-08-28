@@ -1,8 +1,7 @@
 const http = require('http');
 const TelegramBot = require('node-telegram-bot-api');
-const fs = require('fs');
 
-// Token inserido conforme solicitado
+// Token do seu bot
 const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
 const bot = new TelegramBot(TOKEN);
 
@@ -10,7 +9,7 @@ const bot = new TelegramBot(TOKEN);
 const URL = process.env.RENDER_EXTERNAL_URL || 'https://bug-free-octo-umbrella-1.onrender.com';
 bot.setWebHook(`${URL}/bot${TOKEN}`);
 
-// Servidor HTTP para manter o Render ativo
+// Servidor HTTP para manter o Render ativo no Render
 const server = http.createServer((req, res) => {
     if (req.url === `/bot${TOKEN}`) {
         let body = '';
@@ -35,76 +34,53 @@ bot.onText(/\/start/, (msg) => {
     const menuTeclado = {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '📂 Gerar Arquivo Payload (DarkTunnel)', callback_data: 'gerar_payload' }],
-                [{ text: '🛡️ Gerar Arquivo SNI (DarkTunnel)', callback_data: 'gerar_sni' }],
+                [{ text: '⚙️ Gerar Conta & Payload (DarkTunnel)', callback_data: 'info_payload' }],
+                [{ text: '🛡️ Gerar Conta & SNI (DarkTunnel)', callback_data: 'info_sni' }],
                 [{ text: '📞 Contactos de Suporte', callback_data: 'suporte' }]
             ]
         }
     };
 
-    bot.sendMessage(chatId, '🤖 *Painel DarkTunnel HSS*\n\nEscolha o tipo de configuração:', { parse_mode: 'Markdown', ...menuTeclado });
+    bot.sendMessage(chatId, '🤖 *Painel DarkTunnel HSS*\n\nEscolha o que deseja gerar para copiar e colar no aplicativo:', { parse_mode: 'Markdown', ...menuTeclado });
 });
 
-// --- PROCESSAMENTO DOS BOTÕES E GERAÇÃO DOS ARQUIVOS COMPATÍVEIS ---
+// --- LISTA DE SERVIDORES / CONTAS SSH PARA SORTEAR OU USAR ---
+const servidoresDisponiveis = [
+    { ip: "45.134.9.133", porta: "443", user: "u5816912004", pass: "Robson654" },
+    { ip: "45.134.9.133", porta: "80", user: "u5816912004", pass: "Robson654" }
+];
+
+// --- PROCESSAMENTO DOS BOTÕES E ENVIO DOS DADOS EM TEXTO ---
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
 
-    // Credenciais fixas do servidor
-    const servidorIP = "45.134.9.133";
-    const servidorPorta = 443;
-    const usuarioSSH = "u5816912004";
-    const senhaSSH = "Robson654";
+    // Seleciona um servidor (pode ser fixo ou aleatório da lista)
+    const srv = servidoresDisponiveis[Math.floor(Math.random() * servidoresDisponiveis.length)];
 
-    if (acao === 'gerar_payload') {
-        bot.sendMessage(chatId, '⚙️ A gerar configuração com Payload estruturada...');
+    if (acao === 'info_payload') {
+        const payloadTexto = `GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]`;
 
-        const configPayload = {
-            version: 2,
-            profile_name: "Payload MyMuz",
-            mode: "direct",
-            server: servidorIP,
-            port: servidorPorta,
-            username: usuarioSSH,
-            password: senhaSSH,
-            sni: "",
-            payload: "GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]",
-            dns: "8.8.8.8",
-            udp_forward: false
-        };
+        const resposta = `⚙️ *Configuração Payload (DarkTunnel)*\n\n` +
+                         `🖥️ *Host/IP:* \`${srv.ip}\`\n` +
+                         `🔌 *Porta:* \`${srv.porta}\`\n` +
+                         `👤 *Utilizador:* \`${srv.user}\`\n` +
+                         `🔑 *Senha:* \`${srv.pass}\`\n\n` +
+                         `📝 *Payload para copiar:*\n\`${payloadTexto}\``;
 
-        const jsonStr = JSON.stringify(configPayload, null, 2);
-        const nomeArquivo = 'Payload_DarkTunnel.dtun';
-
-        fs.writeFileSync(nomeArquivo, jsonStr);
-        bot.sendDocument(chatId, nomeArquivo, { caption: '✅ Arquivo com Payload gerado com sucesso! Pronto para importar no DarkTunnel.' }).then(() => {
-            fs.unlinkSync(nomeArquivo);
-        });
+        bot.sendMessage(chatId, resposta, { parse_mode: 'Markdown' });
     } 
-    else if (acao === 'gerar_sni') {
-        bot.sendMessage(chatId, '🛡️ A gerar configuração com SNI estruturada...');
+    else if (acao === 'info_sni') {
+        const sniTexto = "mymuze.vm.co.mz";
 
-        const configSni = {
-            version: 2,
-            profile_name: "SNI MyMuz",
-            mode: "sni",
-            server: servidorIP,
-            port: servidorPorta,
-            username: usuarioSSH,
-            password: senhaSSH,
-            sni: "mymuze.vm.co.mz",
-            payload: "",
-            dns: "8.8.8.8",
-            udp_forward: false
-        };
+        const resposta = `🛡️ *Configuração SNI (DarkTunnel)*\n\n` +
+                         `🖥️ *Host/IP:* \`${srv.ip}\`\n` +
+                         `🔌 *Porta:* \`${srv.porta}\`\n` +
+                         `👤 *Utilizador:* \`${srv.user}\`\n` +
+                         `🔑 *Senha:* \`${srv.pass}\`\n\n` +
+                         `🌐 *SNI para copiar:*\n\`${sniTexto}\``;
 
-        const jsonStr = JSON.stringify(configSni, null, 2);
-        const nomeArquivo = 'SNI_MyMuz_DarkTunnel.dtun';
-
-        fs.writeFileSync(nomeArquivo, jsonStr);
-        bot.sendDocument(chatId, nomeArquivo, { caption: '✅ Arquivo SNI (`mymuze.vm.co.mz`) gerado com sucesso! Pronto para importar no DarkTunnel.' }).then(() => {
-            fs.unlinkSync(nomeArquivo);
-        });
+        bot.sendMessage(chatId, resposta, { parse_mode: 'Markdown' });
     }
     else if (acao === 'suporte') {
         bot.sendMessage(chatId, '📞 Para suporte técnico, contacte o administrador.');
@@ -113,4 +89,4 @@ bot.on('callback_query', (query) => {
     bot.answerCallbackQuery(query.id);
 });
 
-console.log('Bot DarkTunnel atualizado e rodando com sucesso!');
+console.log('Bot de envio de dados em texto rodando com sucesso!');
