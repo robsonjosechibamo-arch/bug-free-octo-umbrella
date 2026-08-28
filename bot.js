@@ -8,7 +8,7 @@ server.listen(process.env.PORT || 3000);
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 
-const TOKEN = '8813967882:AAEHIXyiZHLMcy6hHHYK51HInzB_zE4yqLw';
+const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 // Seu payload exato inserido aqui sem nenhuma alteração
