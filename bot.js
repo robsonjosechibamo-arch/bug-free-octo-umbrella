@@ -2,14 +2,14 @@ const http = require('http');
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 
-const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg'; // Seu token atual
+const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg'; // Cole o seu token atual aqui
 const bot = new TelegramBot(TOKEN);
 
 // Configuração do Webhook para o Render
 const URL = process.env.RENDER_EXTERNAL_URL || 'https://bug-free-octo-umbrella-1.onrender.com';
 bot.setWebHook(`${URL}/bot${TOKEN}`);
 
-// Servidor HTTP para manter a porta do Render aberta
+// Servidor HTTP para manter o Render ativo
 const server = http.createServer((req, res) => {
     if (req.url === `/bot${TOKEN}`) {
         let body = '';
@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(process.env.PORT || 3000);
 
-// --- COMANDO /START COM OS BOTÃES DO MENU ---
+// --- COMANDO /START COM O MENU DE BOTÕES ---
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     
@@ -44,31 +44,41 @@ bot.onText(/\/start/, (msg) => {
     bot.sendMessage(chatId, 'Menu Principal:', menuTeclado);
 });
 
-// --- AÇÕES QUANDO OS BOTÃES FOREM CLICADOS ---
+// --- AÇÕES DOS BOTÕES E GERAÇÃO DO ARQUIVO COM O SEU PAYLOAD ---
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
 
     if (acao === 'gerar_arquivo') {
-        bot.sendMessage(chatId, 'Gerando o seu arquivo Dark...');
-        
-        // Exemplo de criação do arquivo
-        const nomeArquivo = 'mymuze.vm.co.mz_30dias.dark';
-        fs.writeFileSync(nomeArquivo, 'Conteudo da configuracao dark...');
+        bot.sendMessage(chatId, 'Gerando o seu arquivo MyMuz...');
 
+        // Estrutura contendo o seu payload exato e a SNI de mymuz
+        const configuracao = {
+            server_sni: "mymuze.vm.co.mz",
+            payload: "GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]",
+            sni: "h.facebook.com",
+            porta: "80"
+        };
+
+        const jsonStr = JSON.stringify(configuracao, null, 2);
+        const nomeArquivo = 'mymuze.vm.co.mz_30dias.dark';
+
+        // Cria o arquivo no servidor
+        fs.writeFileSync(nomeArquivo, jsonStr);
+
+        // Envia o documento para o Telegram e o remove do servidor
         bot.sendDocument(chatId, nomeArquivo).then(() => {
-            fs.unlinkSync(nomeArquivo); // Apaga o arquivo após enviar
+            fs.unlinkSync(nomeArquivo);
         });
     } 
     else if (acao === 'suporte') {
         bot.sendMessage(chatId, 'Para suporte, entre em contacto com o administrador.');
     }
     else if (acao === 'criar_conta') {
-        bot.sendMessage(chatId, 'Envie o comando no formato: /criar_usuario <nome>');
+        bot.sendMessage(chatId, 'Funcionalidade de criar conta selecionada.');
     }
-    
-    // Responde o aviso de clique do botão no Telegram
+
     bot.answerCallbackQuery(query.id);
 });
 
-console.log('Bot rodando com sucesso com os botões do menu!');
+console.log('Bot rodando com sucesso!');
