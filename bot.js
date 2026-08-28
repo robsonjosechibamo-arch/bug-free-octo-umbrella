@@ -1,51 +1,36 @@
 const http = require('http');
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot online!\n');
-});
-server.listen(process.env.PORT || 3000);
-
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 
-const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
-const bot = new TelegramBot(TOKEN, { polling: true });
+const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg'; // Cole o seu token novo aqui
+const bot = new TelegramBot(TOKEN);
 
-// Seu payload exato inserido aqui sem nenhuma alteração
-const PAYLOAD_EXATO = "GET http://h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile/ HTTP/1.1[crlf]Host: h.facebook.com/hr/zsh/api?h_token=MTU5NwZDZD&v2=1&cid=1000107557969131740854005636510%2CAT1pB5d8zsxzyvIrl2wv_vTnWB4CP2qYAhGV4NLPXyU_3HbY%2C1740854005&ni=mobile[crlf]Connection: Keep-Alive[crlf]User-Agent: [ua][crlf][crlf]CONNECT [host_port] [protocol][crlf][crlf]";
+// Configura o Webhook usando a URL pública do seu serviço no Render
+const URL = process.env.RENDER_EXTERNAL_URL || 'https://bug-free-octo-umbrella-1.onrender.com';
+bot.setWebHook(`${URL}/bot${TOKEN}`);
 
-const SNI_PADRAO = 'h.facebook.com';
+// Servidor HTTP obrigatório para o Render manter a porta aberta
+const server = http.createServer((req, res) => {
+    if (req.url === `/bot${TOKEN}`) {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            bot.processUpdate(JSON.parse(body));
+            res.writeHead(200);
+            res.end('OK');
+        });
+    } else {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Bot online via Webhook!\n');
+    }
+});
 
-function gerarArquivoDark(cargaUtil, sni, dias = 30) {
-  const configurazione = {
-    nome: `MyMuz_${dias}D`,
-    sni: sni,
-    "carga útil": cargaUtil,
-    modo: "SSL_PAYLOAD",
-    servidor: "127.0.0.1",
-    porta: "80"
-  };
+server.listen(process.env.PORT || 3000);
 
-  const jsonStr = JSON.stringify(configurazione);
-  const dadosBase46 = Buffer.from(jsonStr).toString('base64');
-  const nome_do_arquivo = `mymuz_${dias}dias.dark`;
-
-  fs.writeFileSync(nome_do_arquivo, dadosBase46);
-  return nome_do_arquivo;
-}
-
+// Suas funções e comandos normais
 bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "Olá! Envie /gerar para criar o seu arquivo Dark Tunnel com o payload personalizado.");
+    const chatId = msg.chat.id;
+    bot.sendMessage(chatId, 'Olá! Bot online e pronto para uso!');
 });
 
-bot.onText(/\/gerar/, (msg) => {
-  const chatId = msg.chat.id;
-  const arquivo = gerarArquivoDark(PAYLOAD_EXATO, SNI_PADRAO, 30);
-  
-  bot.sendDocument(chatId, arquivo).then(() => {
-    fs.unlinkSync(arquivo);
-  });
-});
-
-console.log('Bot rodando com sucesso!');
+console.log('Bot rodando com sucesso via Webhook!');
