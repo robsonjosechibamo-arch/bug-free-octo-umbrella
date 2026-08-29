@@ -68,127 +68,61 @@ bot.onText(/\/start/, (msg) => {
         reply_markup: {  
             inline_keyboard: [  
                 [{ text: '🎮 Jogar / Novo Desafio', callback_data: 'proximo_jogo' }],  
-                [{ text: '📂 Ver Catálogo e Categorias', callback_data: 'menu_catalogo' }],  
                 [{ text: '🏆 Ver Meus Pontos', callback_data: 'ver_pontos' }]  
             ]  
         }  
     };  
 
     bot.sendMessage(chatId,   
-        '🤖 *Bem-vindo ao Super Bot de Jogos e Entretenimento!*\n\n' +  
-        '🧠 *Jogos:* Responde aos desafios para acumular pontos.\n' +  
-        '🎬 *Filmes, Séries e Doramas:* `/filme [nome]`\n' +  
-        '⛩️ *Animes:* `/anime [nome]`\n' +  
-        '📖 *Mangás:* `/manga [nome]`\n' +  
-        '📂 *Catálogo:* `/catalogo`\n\n' +  
+        '🤖 *Bem-vindo ao Super Bot de Matemática e Utilidades!*\n\n' +  
+        '🧠 *Jogos:* Responde aos desafios matemáticos para acumular pontos.\n' +  
+        '🧮 *Calculadora:* `/calc [expressão]` (ex: `/calc 15 + 25`)\n' +
+        '🌤️ *Previsão do Tempo:* `/tempo [cidade]`\n\n' +  
         'Clica abaixo para começar:',   
         { parse_mode: 'Markdown', ...teclado }  
     );
 });
 
-bot.onText(/\/catalogo|categorias/, (msg) => {
-    bot.sendMessage(msg.chat.id, '📂 Escolhe uma categoria abaixo:', {
-        parse_mode: 'Markdown',
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '🔥 Filmes Populares', callback_data: 'cat_filmes_pop' }],
-                [{ text: '📺 Séries e Doramas em Alta', callback_data: 'cat_series_pop' }],
-                [{ text: '⛩️ Animes Mais Vistos', callback_data: 'cat_animes_pop' }],
-                [{ text: '📖 Mangás Populares', callback_data: 'cat_manga_pop' }]
-            ]
+// Comando Calculadora
+bot.onText(/\/calc (.+)/, (msg, match) => {
+    const chatId = msg.chat.id;
+    const expressao = match[1];
+
+    try {
+        const resultado = eval(expressao.replace(/[^0-9+\-*/().]/g, ''));
+        if (resultado === undefined || isNaN(resultado)) {
+            return bot.sendMessage(chatId, '❌ Expressão inválida. Usa números e operadores simples (ex: `/calc 10 * 5`)', { parse_mode: 'Markdown' });
         }
-    });
-});
-
-bot.onText(/\/filme (.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const termo = match[1];
-
-    bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"*...`, { parse_mode: 'Markdown' });  
-
-    try {  
-        const resposta = await axios.get(`https://api.themoviedb.org/3/search/multi?api_key=3d4516a7f454743260dd242e23d532f6&query=${encodeURIComponent(termo)}&language=pt-PT`);  
-        const resultados = resposta.data.results;  
-
-        if (!resultados || resultados.length === 0) {  
-            return bot.sendMessage(chatId, '❌ Nenhum resultado encontrado.');  
-        }  
-
-        const item = resultados[0];  
-        const titulo = item.title || item.name || 'Título Desconhecido';  
-        const sinopse = item.overview || 'Sinopse não disponível.';  
-        const data = item.release_date || item.first_air_date || 'Desconhecido';  
-        const ano = data.split('-')[0];  
-        const poster = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null;  
-        const tipo = item.media_type === 'tv' ? 'Série / Dorama' : 'Filme';  
-
-        const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *Sinopse:*\n${sinopse}`;  
-
-        if (poster) {  
-            bot.sendPhoto(chatId, poster, { caption: texto, parse_mode: 'Markdown' });  
-        } else {  
-            bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });  
-        }  
-    } catch (e) {  
-        bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados.');  
+        bot.sendMessage(chatId, `🧮 *Resultado:* \`${expressao} = ${resultado}\``, { parse_mode: 'Markdown' });
+    } catch (e) {
+        bot.sendMessage(chatId, '❌ Erro ao calcular a expressão.');
     }
 });
 
-bot.onText(/\/anime (.+)/, async (msg, match) => {
+// Comando Previsão do Tempo
+bot.onText(/\/tempo (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const termo = match[1];
+    const cidade = match[1];
 
-    bot.sendMessage(chatId, `⛩️ A procurar pelo anime *"${termo}"*...`, { parse_mode: 'Markdown' });  
+    bot.sendMessage(chatId, `🌤️ A consultar o tempo para *"${cidade}"*...`, { parse_mode: 'Markdown' });
 
-    try {  
-        const resposta = await axios.get(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(termo)}&limit=1`, {  
-            headers: { 'User-Agent': 'BotTelegram/1.0' }  
-        });  
-        const resultados = resposta.data.data;  
+    try {
+        const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt`);
+        if (!geoRes.data.results || geoRes.data.results.length === 0) {
+            return bot.sendMessage(chatId, '❌ Cidade não encontrada.');
+        }
 
-        if (!resultados || resultados.length === 0) {  
-            return bot.sendMessage(chatId, '❌ Nenhum anime encontrado.');  
-        }  
+        const loc = geoRes.data.results[0];
+        const weatherRes = await axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current_weather=true`);
+        const currentWeather = weatherRes.data.current_weather;
 
-        const anime = resultados[0];  
-        const texto = `⛩️ *Anime: ${anime.title}*\n⭐ *Nota:* ${anime.score || 'N/A'}/10\n📺 *Episódios:* ${anime.episodes || 'Desconhecido'}\n\n📖 *Sinopse:*\n${anime.synopsis || 'Indisponível'}`;  
+        const texto = `🌤️ *Previsão do Tempo para ${loc.name} (${loc.country || ''})*\n\n` +
+                      `🌡️ *Temperatura:* ${currentWeather.temperature}°C\n` +
+                      `💨 *Vento:* ${currentWeather.windspeed} km/h`;
 
-        if (anime.images?.jpg?.large_image_url) {  
-            bot.sendPhoto(chatId, anime.images.jpg.large_image_url, { caption: texto, parse_mode: 'Markdown' });  
-        } else {  
-            bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });  
-        }  
-    } catch (e) {  
-        bot.sendMessage(chatId, '⚠️ Erro ao consultar a base de animes.');  
-    }
-});
-
-bot.onText(/\/manga (.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const termo = match[1];
-
-    bot.sendMessage(chatId, `📖 A procurar pelo mangá *"${termo}"*...`, { parse_mode: 'Markdown' });  
-
-    try {  
-        const resposta = await axios.get(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(termo)}&limit=1`, {  
-            headers: { 'User-Agent': 'BotTelegram/1.0' }  
-        });  
-        const resultados = resposta.data.data;  
-
-        if (!resultados || resultados.length === 0) {  
-            return bot.sendMessage(chatId, '❌ Nenhum mangá encontrado.');  
-        }  
-
-        const manga = resultados[0];  
-        const texto = `📖 *Mangá: ${manga.title}*\n⭐ *Nota:* ${manga.score || 'N/A'}/10\n📚 *Volumes:* ${manga.volumes || 'Desconhecido'}\n\n📝 *Sinopse:*\n${manga.synopsis || 'Indisponível'}`;  
-
-        if (manga.images?.jpg?.large_image_url) {  
-            bot.sendPhoto(chatId, manga.images.jpg.large_image_url, { caption: texto, parse_mode: 'Markdown' });  
-        } else {  
-            bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });  
-        }  
-    } catch (e) {  
-        bot.sendMessage(chatId, '⚠️ Erro ao consultar a base de mangás.');  
+        bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+    } catch (e) {
+        bot.sendMessage(chatId, '⚠️ Erro ao consultar a previsão do tempo.');
     }
 });
 
@@ -204,72 +138,13 @@ bot.on('callback_query', async (query) => {
         return bot.sendMessage(chatId, `🏆 Tens atualmente *${pontuacoes[chatId]}* pontos!`, { parse_mode: 'Markdown' });  
     }  
 
-    if (acao === 'menu_catalogo') {  
-        try { await bot.answerCallbackQuery(query.id); } catch (e) {}  
-        return bot.sendMessage(chatId, '📂 *Escolhe uma categoria abaixo:*', {  
-            parse_mode: 'Markdown',  
-            reply_markup: {  
-                inline_keyboard: [  
-                    [{ text: '🔥 Filmes Populares', callback_data: 'cat_filmes_pop' }],  
-                    [{ text: '📺 Séries e Doramas em Alta', callback_data: 'cat_series_pop' }],  
-                    [{ text: '⛩️ Animes Mais Vistos', callback_data: 'cat_animes_pop' }],  
-                    [{ text: '📖 Mangás Populares', callback_data: 'cat_manga_pop' }]  
-                ]  
-            }  
-        });  
-    }  
-
-    if (acao.startsWith('cat_')) {  
-        const tipoCat = acao.replace('cat_', '');  
-        try { await bot.answerCallbackQuery(query.id, { text: 'A carregar lista...' }); } catch (e) {}  
-
-        try {  
-            if (tipoCat === 'filmes_pop') {  
-                const res = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);  
-                let texto = '🔥 *Filmes Populares:*\n\n';  
-                res.data.results.slice(0, 5).forEach((f, i) => {  
-                    texto += `${i + 1}. *${f.title}* (⭐ ${f.vote_average})\n👉 \`/filme ${f.title}\`\n\n`;  
-                });  
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });  
-            }  
-
-            if (tipoCat === 'series_pop') {  
-                const res = await axios.get(`https://api.themoviedb.org/3/tv/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);  
-                let texto = '📺 *Séries e Doramas em Alta:*\n\n';  
-                res.data.results.slice(0, 5).forEach((s, i) => {  
-                    texto += `${i + 1}. *${s.name}* (⭐ ${s.vote_average})\n👉 \`/filme ${s.name}\`\n\n`;  
-                });  
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });  
-            }  
-
-            if (tipoCat === 'animes_pop') {  
-                const res = await axios.get(`https://api.jikan.moe/v4/top/anime?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });  
-                let texto = '⛩️ *Animes Mais Vistos:*\n\n';  
-                res.data.data.forEach((a, i) => {  
-                    texto += `${i + 1}. *${a.title}* (⭐ ${a.score})\n👉 \`/anime ${a.title}\`\n\n`;  
-                });  
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });  
-            }  
-
-            if (tipoCat === 'manga_pop') {  
-                const res = await axios.get(`https://api.jikan.moe/v4/top/manga?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });  
-                let texto = '📖 *Mangás Populares:*\n\n';  
-                res.data.data.forEach((m, i) => {  
-                    texto += `${i + 1}. *${m.title}* (⭐ ${m.score})\n👉 \`/manga ${m.title}\`\n\n`;  
-                });  
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });  
-            }  
-        } catch (e) {  
-            return bot.sendMessage(chatId, '⚠️ Erro ao carregar a lista de categorias.');  
-        }  
-    }  
-
     if (acao === 'proximo_jogo') {  
         if (!bancoDeJogos || bancoDeJogos.length === 0) {
             try { await bot.answerCallbackQuery(query.id, { text: 'Sem perguntas disponíveis!' }); } catch (e) {}
             return;
         }
 
+        // Reinicia o ciclo se já tiver respondido a todas as perguntas do banco
         if (historicoPerguntasPorChat[chatId].length >= bancoDeJogos.length) {
             historicoPerguntasPorChat[chatId] = [];
         }
@@ -329,4 +204,3 @@ bot.on('callback_query', async (query) => {
         }  
     }
 });
- 
