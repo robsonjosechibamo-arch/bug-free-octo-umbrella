@@ -4,12 +4,16 @@ const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
 
 const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
-const bot = new TelegramBot(TOKEN);
+const bot = new TelegramBot(TOKEN, { polling: false });
 
 const PORT = process.env.PORT || 3000;
-const URL = process.env.RENDER_EXTERNAL_URL || 'https://bug-free-octo-umbrella-1.onrender.com';
+const URL = 'https://bug-free-octo-umbrella-1.onrender.com';
 
-bot.setWebHook(`${URL}/bot${TOKEN}`);
+bot.setWebHook(`${URL}/bot${TOKEN}`).then(() => {
+    console.log(`Webhook definido com sucesso para: ${URL}/bot${TOKEN}`);
+}).catch(err => {
+    console.log(`Erro ao definir webhook: ${err.message}`);
+});
 
 const server = http.createServer((req, res) => {
     if (req.url === `/bot${TOKEN}`) {
@@ -17,7 +21,8 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
             try {
-                bot.processUpdate(JSON.parse(body));
+                const update = JSON.parse(body);
+                bot.processUpdate(update);
             } catch (e) {}
             res.writeHead(200);
             res.end('OK');
@@ -32,57 +37,41 @@ server.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
 
-let bancoDeJogos = [];
-try {
-    const dadosArquivo = fs.readFileSync('perguntas.json', 'utf8');
-    bancoDeJogos = JSON.parse(dadosArquivo);
-} catch (erro) {
-    bancoDeJogos = [
-        {
-            id: 'seg_1',
-            pergunta: 'Quanto é 2 + 2?',
-            opcoes: [{ texto: '4', valor: 'certo' }, { texto: '5', valor: 'errado' }],
-            respostaCerta: 'certo'
-        }
-    ];
-}
-
-const pontuacoes = {}; 
-const jogoAtualPorChat = {}; 
-
 // =========================================================================
-// BASE DE DADOS COMPLETA (Mangás, Animes, Séries, Filmes e Doramas)
-// Poca alteração necessária: podes mudar o linkDownload para o teu link real
+// BANCO DE DADOS DE JOGOS E PERGUNTAS (Totalmente automático)
 // =========================================================================
-const baseConteudo = {
-    'one piece': { 
-        tipo: 'Mangá / Anime',
-        titulo: 'One Piece', 
-        nota: '9.2/10', 
-        volumes: '108+ (História Completa)', 
-        sinopse: 'A jornada épica de Monkey D. Luffy e a sua tripulação em busca do tesouro lendário para se tornar o Rei dos Piratas.',
-        linkDownload: 'https://t.me/o_teu_canal_telegram' 
+const bancoDeJogos = [
+    {
+        id: '1',
+        pergunta: 'Quanto é 7 x 8?',
+        opcoes: [{ texto: '54', valor: 'errado' }, { texto: '56', valor: 'certo' }, { texto: '62', valor: 'errado' }],
+        respostaCerta: 'certo'
     },
-    'jujutsu': { 
-        tipo: 'Mangá / Anime',
-        titulo: 'Jujutsu Kaisen', 
-        nota: '8.8/10', 
-        volumes: '26 (Completo)', 
-        sinopse: 'Yuji Itadori engole um dedo amaldiçoado de Ryomen Sukuna, entrando de cabeça no perigoso mundo das maldições e feiticeiros.',
-        linkDownload: 'https://t.me/o_teu_canal_telegram' 
+    {
+        id: '2',
+        pergunta: 'Qual é a capital de Portugal?',
+        opcoes: [{ texto: 'Lisboa', valor: 'certo' }, { texto: 'Porto', valor: 'errado' }, { texto: 'Coimbra', valor: 'errado' }],
+        respostaCerta: 'certo'
     },
-    'naruto': { 
-        tipo: 'Mangá / Anime',
-        titulo: 'Naruto', 
-        nota: '8.5/10', 
-        volumes: '72 (Completo)', 
-        sinopse: 'A história de Naruto Uzumaki, um ninja rejeitado que sonha em se tornar Hokage, o líder da sua vila.',
-        linkDownload: 'https://t.me/o_teu_canal_telegram' 
+    {
+        id: '3',
+        pergunta: 'Qual destes planetas é conhecido como o Planeta Vermelho?',
+        opcoes: [{ texto: 'Vénus', valor: 'errado' }, { texto: 'Marte', valor: 'certo' }, { texto: 'Júpiter', valor: 'errado' }],
+        respostaCerta: 'certo'
+    },
+    {
+        id: '4',
+        pergunta: 'Quanto é 15 + 27?',
+        opcoes: [{ texto: '42', valor: 'certo' }, { texto: '40', valor: 'errado' }, { texto: '45', valor: 'errado' }],
+        respostaCerta: 'certo'
     }
-};
+];
+
+const pontuacoes = {};
+const jogoAtualPorChat = {};
 
 // =========================================================================
-// COMANDOS PRINCIPAIS
+// COMANDO /start
 // =========================================================================
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
@@ -91,67 +80,62 @@ bot.onText(/\/start/, (msg) => {
     const teclado = {
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🎮 Jogar', callback_data: 'proximo_jogo' }],
-                [{ text: '📂 Catálogo Completo', callback_data: 'menu_catalogo' }],
-                [{ text: '🏆 Pontos', callback_data: 'ver_pontos' }]
+                [{ text: '🎮 Jogar Quiz Automático', callback_data: 'proximo_jogo' }],
+                [{ text: '🌤️ Ver Tempo (Exemplo)', callback_data: 'ajuda_tempo' }],
+                [{ text: '🧮 Como Calcular', callback_data: 'ajuda_calc' }],
+                [{ text: '🏆 Ver Meus Pontos', callback_data: 'ver_pontos' }]
             ]
         }
     };
 
-    bot.sendMessage(chatId, '🤖 *Bem-vindo ao ROS HSS Bot!* Escolhe uma opção abaixo:', { parse_mode: 'Markdown', ...teclado });
-});
-
-bot.onText(/\/catalogo|categorias/, (msg) => {
-    bot.sendMessage(msg.chat.id, '📂 *Escolhe uma categoria:*', {
-        parse_mode: 'Markdown',
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '🔥 Filmes e Séries', callback_data: 'cat_filmes' }],
-                [{ text: '⛩️ Animes e Mangás', callback_data: 'cat_mangas' }],
-                [{ text: '🌸 Doramas', callback_data: 'cat_doramas' }]
-            ]
-        }
-    });
-});
-// Pesquisa de Filmes e Séries (Com proteção total contra erros)
-bot.onText(/\/filme (.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
-    const termo = match[1];
-
-    bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"*...`, { parse_mode: 'Markdown' });
-
-    try {
-        const res = await axios.get(`https://api.themoviedb.org/3/search/multi?api_key=3d4516a7f454743260dd242e23d532f6&query=${encodeURIComponent(termo)}&language=pt-PT`, { timeout: 10000 });
-        
-        if (!res.data || !res.data.results || res.data.results.length === 0) {
-            return bot.sendMessage(chatId, `❌ Nenhum resultado encontrado para "${termo}".`);
-        }
-
-        const item = res.data.results[0];
-        const titulo = item.title || item.name || 'Desconhecido';
-        const sinopse = item.overview || 'Sinopse indisponível.';
-        const data = item.release_date || item.first_air_date || 'Desconhecido';
-        const ano = data.split('-')[0] || 'N/A';
-        const tipo = item.media_type === 'tv' ? 'Série / Dorama' : 'Filme';
-
-        const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *História / Sinopse:*\n${sinopse}\n\n📥 *Para baixar:* Aceda ao nosso canal oficial para obter o ficheiro completo.`;
-        return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-
-    } catch (e) {
-        console.error('Erro detalhado no TMDB:', e.message);
-        // Mensagem de segurança amigável caso a API falhe
-        return bot.sendMessage(chatId, `🎬 *${termo}* encontrado!\n\n📖 Para garantir a melhor qualidade em HD, aceda diretamente ao canal oficial do bot para efetuar o download.`, { parse_mode: 'Markdown' });
-    }
-});
-// Pesquisa de Doramas
-bot.onText(/\/dorama (.+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const termo = match[1];
-    bot.sendMessage(chatId, `🌸 *Dorama:* ${termo}\n\n📖 Encontrado com sucesso! Para baixar os episódios completos legendados, aceda ao canal oficial do bot.`, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, '🤖 *Bem-vindo ao ROS HSS Bot!*\n\nEscolhe uma das opções automáticas abaixo:', { parse_mode: 'Markdown', ...teclado });
 });
 
 // =========================================================================
-// SISTEMA DE BOTÕES (CALLBACK QUERIES)
+// 1. MÓDULO DE CÁLCULO AUTOMÁTICO
+// Uso: /calc 5 + 5
+// =========================================================================
+bot.onText(/\/calc (.+)/, (msg, match) => {
+    const chatId = msg.chat.id;
+    const expressao = match[1];
+
+    try {
+        // Segurança estrita: permite apenas números e operadores matemáticos básicos (+, -, *, /)
+        if (!/^[\d\+\-\*\/\.\(\)\s]+$/.test(expressao)) {
+            return bot.sendMessage(chatId, '❌ Expressão inválida. Usa apenas números e operadores básicos (+, -, *, /).');
+        }
+
+        // Avaliação segura da matemática
+        const resultado = Function('"use strict";return (' + expressao + ')')();
+        return bot.sendMessage(chatId, `🧮 *Resultado:* \`${expressao} = ${resultado}\``, { parse_mode: 'Markdown' });
+    } catch (e) {
+        return bot.sendMessage(chatId, '❌ Erro ao calcular. Verifica a expressão.');
+    }
+});
+
+// =========================================================================
+// 2. MÓDULO DE PREVISÃO DO TEMPO (Simples e Direto)
+// Uso: /tempo [cidade]
+// =========================================================================
+bot.onText(/\/tempo (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const cidade = match[1];
+
+    bot.sendMessage(chatId, `🔍 A consultar o tempo para *"${cidade}"*...`, { parse_mode: 'Markdown' });
+
+    try {
+        // Usando a API gratuita wttr.in para obter o clima em formato texto limpo
+        const resposta = await axios.get(`https://wttr.in/${encodeURIComponent(cidade)}?format=%C+%t+(Vento:+%w)&lang=pt`, { timeout: 7000 });
+        const climaInfo = resposta.data.trim();
+
+        return bot.sendMessage(chatId, `🌤️ *Previsão do Tempo para ${cidade}:*\n\n${climaInfo}`, { parse_mode: 'Markdown' });
+    } catch (e) {
+        return bot.sendMessage(chatId, `⚠️ Não foi possível obter o clima para "${cidade}" neste momento.`);
+    }
+});
+
+// =========================================================================
+// SISTEMA DE JOGOS E CALLBACKS (Interativo e Automático)
 // =========================================================================
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
@@ -161,33 +145,17 @@ bot.on('callback_query', async (query) => {
 
     if (acao === 'ver_pontos') {
         try { await bot.answerCallbackQuery(query.id); } catch (e) {}
-        return bot.sendMessage(chatId, `🏆 Tens *${pontuacoes[chatId]}* pontos!`, { parse_mode: 'Markdown' });
+        return bot.sendMessage(chatId, `🏆 Tens *${pontuacoes[chatId]}* pontos acumulados!`, { parse_mode: 'Markdown' });
     }
 
-    if (acao === 'menu_catalogo') {
+    if (acao === 'ajuda_tempo') {
         try { await bot.answerCallbackQuery(query.id); } catch (e) {}
-        return bot.sendMessage(chatId, '📂 *Escolhe uma categoria:*', {
-            parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '🔥 Filmes e Séries', callback_data: 'cat_filmes' }],
-                    [{ text: '⛩️ Animes e Mangás', callback_data: 'cat_mangas' }],
-                    [{ text: '🌸 Doramas', callback_data: 'cat_doramas' }]
-                ]
-            }
-        });
+        return bot.sendMessage(chatId, '🌤️ *Como ver o tempo:*\nEnvia o comando no chat assim:\n`/tempo Maputo` (ou qualquer outra cidade)', { parse_mode: 'Markdown' });
     }
 
-    if (acao.startsWith('cat_')) {
-        const tipo = acao.replace('cat_', '');
+    if (acao === 'ajuda_calc') {
         try { await bot.answerCallbackQuery(query.id); } catch (e) {}
-
-        let textoAjuda = '';
-        if (tipo === 'filmes') textoAjuda = '🔥 *Como pesquisar Filmes/Séries:*\nUsa: `/filme [nome]`\nExemplo: `/filme Avatar`';
-        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás/Animes:*\nUsa: `/manga [nome]` ou `/anime [nome]`\nExemplo: `/manga One Piece`';
-        if (tipo === 'doramas') textoAjuda = '🌸 *Como pesquisar Doramas:*\nUsa: `/dorama [nome]`\nExemplo: `/dorama Vincenzo`';
-
-        return bot.sendMessage(chatId, textoAjuda, { parse_mode: 'Markdown' });
+        return bot.sendMessage(chatId, '🧮 *Como usar a calculadora:*\nEnvia o comando no chat assim:\n`/calc 50 * 2 + 10`', { parse_mode: 'Markdown' });
     }
 
     if (acao === 'proximo_jogo') {
@@ -197,7 +165,7 @@ bot.on('callback_query', async (query) => {
         const botoes = jogo.opcoes.map(o => [{ text: o.texto, callback_data: `resp_${o.valor}` }]);
 
         try { await bot.answerCallbackQuery(query.id); } catch (e) {}
-        return bot.sendMessage(chatId, `${jogo.pergunta}`, {
+        return bot.sendMessage(chatId, `🧠 **Pergunta de Quiz:**\n\n${jogo.pergunta}`, {
             parse_mode: 'Markdown',
             reply_markup: { inline_keyboard: botoes }
         });
@@ -208,7 +176,7 @@ bot.on('callback_query', async (query) => {
         const j = jogoAtualPorChat[chatId];
 
         if (!j) {
-            try { await bot.answerCallbackQuery(query.id, { text: 'Fim!' }); } catch (e) {}
+            try { await bot.answerCallbackQuery(query.id, { text: 'Jogo expirado!' }); } catch (e) {}
             return;
         }
 
@@ -217,16 +185,16 @@ bot.on('callback_query', async (query) => {
             delete jogoAtualPorChat[chatId];
 
             try { await bot.answerCallbackQuery(query.id, { text: '+10 pontos!' }); } catch (e) {}
-            return bot.sendMessage(chatId, `🎉 **Certo!** Total: *${pontuacoes[chatId]}* pts`, {
+            return bot.sendMessage(chatId, `🎉 **Certa resposta!** Ganhaste 10 pontos.\nTotal: *${pontuacoes[chatId]}* pts`, {
                 parse_mode: 'Markdown',
-                reply_markup: { inline_keyboard: [[{ text: '➡️ Próximo', callback_data: 'proximo_jogo' }]] }
+                reply_markup: { inline_keyboard: [[{ text: '➡️ Próxima Pergunta', callback_data: 'proximo_jogo' }]] }
             });
         }
 
-        try { await bot.answerCallbackQuery(query.id, { text: 'Errado!' }); } catch (e) {}
-        return bot.sendMessage(chatId, `❌ **Errado!**`, {
+        try { await bot.answerCallbackQuery(query.id, { text: 'Resposta errada!' }); } catch (e) {}
+        return bot.sendMessage(chatId, `❌ **Resposta Errada!** Tenta outra vez.`, {
             parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: [[{ text: '🔄 Tentar Outro', callback_data: 'proximo_jogo' }]] }
+            reply_markup: { inline_keyboard: [[{ text: '🔄 Tentar Outra', callback_data: 'proximo_jogo' }]] }
         });
     }
 });
