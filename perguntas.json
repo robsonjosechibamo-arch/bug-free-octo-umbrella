@@ -1,13 +1,102 @@
-[
-  {
-    "id": "mat_1",
-    "pergunta": "🧮 **Desafio Matemático #1**\nQuanto é `15 + 25`?",
-    "opcoes": [
-      { "texto": "35", "valor": "errado1" },
-      { "texto": "40", "valor": "certo" },
-      { "texto": "45", "valor": "errado2" }
-    ],
-    "respostaCerta": "certo"
-  }
-]
- 
+const fs = require('fs');
+
+const totalPerguntas = 400;
+const banco = [];
+
+// Categorias e listas de apoio para diversificar
+const temas = [
+    {
+        tipo: 'matematica',
+        gerar: (i) => {
+            const n1 = Math.floor(Math.random() * 80) + 10;
+            const n2 = Math.floor(Math.random() * 80) + 10;
+            const soma = n1 + n2;
+            return {
+                id: `mat_${i}`,
+                pergunta: `🧮 **Matemática #${i}**\nQuanto é \`${n1} + ${n2}\`?`,
+                opcoes: [
+                    { texto: `${soma - 2}`, valor: 'errado1' },
+                    { texto: `${soma}`, valor: 'certo' },
+                    { texto: `${soma + 5}`, valor: 'errado2' }
+                ],
+                respostaCerta: 'certo'
+            };
+        }
+    },
+    {
+        tipo: 'geografia',
+        perguntas: [
+            { p: "Qual é o maior país do mundo em área territorial?", c: "Rússia", e1: "Canadá", e2: "China" },
+            { p: "Qual é a capital de Moçambique?", c: "Maputo", e1: "Beira", e2: "Nampula" },
+            { p: "Em que continente fica o Egito?", c: "África", e1: "Ásia", e2: "Europa" },
+            { p: "Qual é o rio mais longo do mundo?", c: "Rio Nilo", e1: "Rio Amazonas", e2: "Rio Mississippi" }
+        ],
+        gerar: (i, item) => ({
+            id: `geo_${i}`,
+            pergunta: `🌍 **Geografia #${i}**\n${item.p}`,
+            opcoes: [
+                { texto: item.e1, valor: 'errado1' },
+                { texto: item.c, valor: 'certo' },
+                { texto: item.e2, valor: 'errado2' }
+            ],
+            respostaCerta: 'certo'
+        })
+    },
+    {
+        tipo: 'historia',
+        perguntas: [
+            { p: "Quem pintou a Mona Lisa?", c: "Leonardo da Vinci", e1: "Pablo Picasso", e2: "Van Gogh" },
+            { p: "Em que ano o homem pisou na Lua pela primeira vez?", c: "1969", e1: "1959", e2: "1975" },
+            { p: "Qual civilização antiga construiu as pirâmides de Gizé?", c: "Egípcia", e1: "Romana", e2: "Grega" }
+        ],
+        gerar: (i, item) => ({
+            id: `hist_${i}`,
+            pergunta: `📜 **História e Cultura #${i}**\n${item.p}`,
+            opcoes: [
+                { texto: item.e1, valor: 'errado1' },
+                { texto: item.c, valor: 'certo' },
+                { texto: item.e2, valor: 'errado2' }
+            ],
+            respostaCerta: 'certo'
+        })
+    },
+    {
+        tipo: 'charadas',
+        perguntas: [
+            { p: "O que é, o que é: Tem cabeça e tem dente, não é bicho e nem é gente?", c: "O alho", e1: "O pente", e2: "O garfo" },
+            { p: "O que é, o que é: Cai em pé e corre deitado?", c: "A chuva", e1: "O rio", e2: "O vento" },
+            { p: "O que é, o que é: Quanto mais se retira, maior fica?", c: "O buraco", e1: "A montanha", e2: "O poço" }
+        ],
+        gerar: (i, item) => ({
+            id: `char_${i}`,
+            pergunta: `🧩 **Charada #${i}**\n${item.p}`,
+            opcoes: [
+                { texto: item.e1, valor: 'errado1' },
+                { texto: item.c, valor: 'certo' },
+                { texto: item.e2, valor: 'errado2' }
+            ],
+            respostaCerta: 'certo'
+        })
+    }
+];
+
+console.log(`⏳ A gerar ${totalPerguntas} perguntas variadas automaticamente...`);
+
+for (let i = 1; i <= totalPerguntas; i++) {
+    // Escolhe aleatoriamente uma categoria
+    const temaSorteado = temas[Math.floor(Math.random() * temas.length)];
+    
+    let novaPergunta;
+    if (temaSorteado.tipo === 'matematica') {
+        novaPergunta = temaSorteado.gerar(i);
+    } else {
+        // Pega uma pergunta aleatória da lista daquela disciplina
+        const itemLista = temaSorteado.perguntas[Math.floor(Math.random() * temaSorteado.perguntas.length)];
+        novaPergunta = temaSorteado.gerar(i, itemLista);
+    }
+
+    banco.push(novaPergunta);
+}
+
+fs.writeFileSync('perguntas.json', JSON.stringify(banco, null, 2));
+console.log('✅ Ficheiro perguntas.json atualizado com 400 perguntas mistas (Matemática, Geografia, História e Charadas)!');
