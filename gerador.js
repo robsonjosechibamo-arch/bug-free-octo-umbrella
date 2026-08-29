@@ -23,4 +23,4 @@ for (let i = 1; i <= totalPerguntas; i++) {
 }
 
 fs.writeFileSync('perguntas.json', JSON.stringify(banco, null, 2));
-console.log(`✅ Sucesso! O ficheiro 'perguntas.json' foi criado com ${totalPerguntas} perguntas.`);
+console.log('✅ Ficheiro perguntas.json gerado com sucesso!');
