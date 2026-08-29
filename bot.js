@@ -106,13 +106,197 @@ bot.onText(/\/calc (.+)/, (msg, match) => {
         bot.sendMessage(chatId, '❌ Erro ao calcular a expressão.');
     }
 });
-// Comando IA atualizado com suporte real a respostas inteligentes
-bot.onText(/\/ia (.+)/, async (msg, match) => {
+// =====================================================
+// COMANDO /IA - IA GRATUITA SEM API KEY
+// =====================================================
+
+// Memória das conversas
+const memoriaIA = {};
+const LIMITE_MEMORIA = 10;
+
+bot.onText(/\/ia(?:\s+([\s\S]+))?/, async (msg, match) => {
+
     const chatId = msg.chat.id;
-    const pergunta = match[1];
 
-    bot.sendMessage(chatId, '💡 *A IA está a pensar numa resposta para ti...*', { parse_mode: 'Markdown' });
+    const pergunta = match && match[1]
+        ? match[1].trim()
+        : '';
 
+    // Verifica se o utilizador escreveu alguma pergunta
+    if (!pergunta) {
+        return bot.sendMessage(
+            chatId,
+            '🤖 Usa assim:\n\n/ia O que é inteligência artificial?'
+        );
+    }
+
+    try {
+        // Indicador de que o bot está a escrever
+        await bot.sendChatAction(chatId, 'typing');
+    } catch (e) {}
+
+    const pensando = await bot.sendMessage(
+        chatId,
+        '💡 Estou a pensar...'
+    );
+
+    try {
+
+        // Criar memória para este chat
+        if (!memoriaIA[chatId]) {
+            memoriaIA[chatId] = [];
+        }
+
+        let historico = memoriaIA[chatId];
+
+        // Mantém apenas as últimas mensagens
+        historico = historico.slice(-LIMITE_MEMORIA);
+
+        // Adiciona a pergunta
+        historico.push({
+            role: 'user',
+            content: pergunta
+        });
+
+        // =================================================
+        // PEDIDO À IA
+        // =================================================
+
+        const resposta = await axios.post(
+            'https://blockrun.ai/api/v1/chat/completions',
+
+            {
+                model: 'nvidia/step-3.7-flash',
+
+                messages: [
+                    {
+                        role: 'system',
+                        content: `
+Tu és a IA inteligente deste bot do Telegram.
+
+Responde sempre em português.
+
+REGRAS:
+
+1. Responde de forma clara e fácil de entender.
+2. Vai diretamente ao assunto.
+3. Não inventes informações.
+4. Se não souberes alguma coisa, diz claramente.
+5. Para perguntas simples, responde de forma curta.
+6. Para perguntas complexas, explica passo a passo.
+7. Usa listas quando isso facilitar a compreensão.
+8. Mantém o contexto da conversa.
+9. Se o utilizador fizer uma pergunta relacionada com a anterior, usa a informação anterior.
+10. Se o utilizador pedir código, fornece código completo e explica onde colocar.
+11. Não repitas a pergunta do utilizador sem necessidade.
+12. Sê útil, natural e objetiva.
+`
+                    },
+
+                    ...historico
+                ],
+
+                temperature: 0.7,
+
+                max_tokens: 1200
+            },
+
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+                timeout: 60000
+            }
+        );
+
+        // =================================================
+        // LER RESPOSTA
+        // =================================================
+
+        const textoResposta =
+            resposta.data?.choices?.[0]?.message?.content?.trim();
+
+        if (!textoResposta) {
+            throw new Error(
+                'A IA não devolveu uma resposta válida.'
+            );
+        }
+
+        // =================================================
+        // GUARDAR RESPOSTA NA MEMÓRIA
+        // =================================================
+
+        historico.push({
+            role: 'assistant',
+            content: textoResposta
+        });
+
+        memoriaIA[chatId] =
+            historico.slice(-LIMITE_MEMORIA);
+
+        // =================================================
+        // APAGAR "ESTOU A PENSAR"
+        // =================================================
+
+        try {
+            await bot.deleteMessage(
+                chatId,
+                pensando.message_id
+            );
+        } catch (e) {}
+
+        // =================================================
+        // ENVIAR RESPOSTA
+        // =================================================
+
+        await bot.sendMessage(
+            chatId,
+            `💡 Resposta da IA:\n\n${textoResposta}`
+        );
+
+    } catch (erro) {
+
+        console.error(
+            '❌ ERRO DA IA:',
+            erro.response?.data ||
+            erro.message
+        );
+
+        // Apagar mensagem "Estou a pensar"
+        try {
+            await bot.deleteMessage(
+                chatId,
+                pensando.message_id
+            );
+        } catch (e) {}
+
+        let mensagemErro =
+            '⚠️ Não consegui obter uma resposta da IA. Tenta novamente.';
+
+        if (erro.response?.status === 429) {
+
+            mensagemErro =
+                '⚠️ A IA está muito ocupada neste momento. Tenta novamente daqui a pouco.';
+
+        } else if (erro.response?.status >= 500) {
+
+            mensagemErro =
+                '⚠️ O servidor da IA está temporariamente indisponível.';
+
+        } else if (erro.response?.status === 402) {
+
+            mensagemErro =
+                '⚠️ Este modelo gratuito deixou de estar disponível neste momento.';
+
+        }
+
+        await bot.sendMessage(
+            chatId,
+            mensagemErro
+        );
+    }
+});
     try {
         // Podes obter uma chave gratuita da API do Google Gemini no Google AI Studio
         // Ou utilizar um endpoint público alternativo se preferires não usar chave.
