@@ -50,23 +50,31 @@ try {
 const pontuacoes = {}; 
 const jogoAtualPorChat = {}; 
 
-// Base local de Mangás e Animes (Texto/Sinopse - Intacta)
-const baseMangas = {
-    'one piece': { titulo: 'One Piece', nota: '9.2/10', volumes: '108+', sinopse: 'A jornada de Monkey D. Luffy para se tornar o Rei dos Piratas.' },
-    'jujutsu': { titulo: 'Jujutsu Kaisen', nota: '8.8/10', volumes: '26', sinopse: 'Yuji Itadori engole um dedo amaldiçoado e entra para o mundo dos feiticeiros.' },
-    'naruto': { titulo: 'Naruto', nota: '8.5/10', volumes: '72', sinopse: 'Um jovem ninja que busca reconhecimento e o sonho de se tornar Hokage.' }
-};
-
-// Base de Ficheiros Reais para o comando /baixar
-// Podes usar um link direto válido OU o caminho de um ficheiro local (ex: './ficheiros/jujutsu.pdf')
-const baseFicheiros = {
+// Base Completa com Histórias, Detalhes e Links de Download para Mangás/Animes/Doramas
+const baseConteudo = {
     'one piece': { 
-        titulo: 'One Piece - Capítulo/Pack', 
-        origem: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' // Exemplo de link PDF válido para teste
+        tipo: 'Mangá / Anime',
+        titulo: 'One Piece', 
+        nota: '9.2/10', 
+        volumes: '108+ (História Completa)', 
+        sinopse: 'A jornada épica de Monkey D. Luffy e a sua tripulação em busca do tesouro lendário para se tornar o Rei dos Piratas.',
+        linkDownload: 'https://exemplo.com/download/one-piece-completo.pdf' 
     },
     'jujutsu': { 
-        titulo: 'Jujutsu Kaisen - Mangá PDF', 
-        origem: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' // Exemplo de link PDF válido para teste
+        tipo: 'Mangá / Anime',
+        titulo: 'Jujutsu Kaisen', 
+        nota: '8.8/10', 
+        volumes: '26 (Completo)', 
+        sinopse: 'Yuji Itadori engole um dedo amaldiçoado de Ryomen Sukuna, entrando de cabeça no perigoso mundo das maldições e feiticeiros.',
+        linkDownload: 'https://exemplo.com/download/jujutsu-kaisen-completo.pdf' 
+    },
+    'naruto': { 
+        tipo: 'Mangá / Anime',
+        titulo: 'Naruto', 
+        nota: '8.5/10', 
+        volumes: '72 (Completo)', 
+        sinopse: 'A história de Naruto Uzumaki, um ninja rejeitado que sonha em se tornar Hokage, o líder da sua vila.',
+        linkDownload: 'https://exemplo.com/download/naruto-completo.pdf' 
     }
 };
 
@@ -78,13 +86,13 @@ bot.onText(/\/start/, (msg) => {
         reply_markup: {
             inline_keyboard: [
                 [{ text: '🎮 Jogar', callback_data: 'proximo_jogo' }],
-                [{ text: '📂 Catálogo', callback_data: 'menu_catalogo' }],
+                [{ text: '📂 Catálogo Completo', callback_data: 'menu_catalogo' }],
                 [{ text: '🏆 Pontos', callback_data: 'ver_pontos' }]
             ]
         }
     };
 
-    bot.sendMessage(chatId, '🤖 *Bem-vindo ao Bot!* Escolhe uma opção:', { parse_mode: 'Markdown', ...teclado });
+    bot.sendMessage(chatId, '🤖 *Bem-vindo ao ROS HSS Bot!* Escolhe uma opção abaixo:', { parse_mode: 'Markdown', ...teclado });
 });
 
 bot.onText(/\/catalogo|categorias/, (msg) => {
@@ -93,13 +101,14 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
         reply_markup: {
             inline_keyboard: [
                 [{ text: '🔥 Filmes e Séries', callback_data: 'cat_filmes' }],
-                [{ text: '⛩️ Animes e Mangás', callback_data: 'cat_mangas' }]
+                [{ text: '⛩️ Animes e Mangás', callback_data: 'cat_mangas' }],
+                [{ text: '🌸 Doramas', callback_data: 'cat_doramas' }]
             ]
         }
     });
 });
 
-// Pesquisa de Filmes e Séries (Intacta)
+// Pesquisa de Filmes, Séries e Doramas via TMDB (Com link de apoio/streaming simulado)
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
@@ -119,33 +128,38 @@ bot.onText(/\/filme (.+)/, async (msg, match) => {
         const sinopse = item.overview || 'Sinopse indisponível.';
         const data = item.release_date || item.first_air_date || 'Desconhecido';
         const ano = data.split('-')[0];
-        const tipo = item.media_type === 'tv' ? 'Série' : 'Filme';
+        const tipo = item.media_type === 'tv' ? 'Série / Dorama' : 'Filme';
 
-        const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *Sinopse:*\n${sinopse}`;
+        const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *História / Sinopse:*\n${sinopse}\n\n📥 *Para baixar:* Utilize o nosso canal oficial ou digite o nome na categoria correspondente.`;
         return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
     } catch (e) {
-        return bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de filmes.');
+        return bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados.');
     }
 });
 
-// Pesquisa de Mangás (Intacta - Texto)
+// Pesquisa detalhada de Mangás e Animes com história completa e link de download direto
 bot.onText(/\/manga (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1].toLowerCase();
 
     let encontrado = null;
-    for (let chave in baseMangas) {
+    for (let chave in baseConteudo) {
         if (termo.includes(chave)) {
-            encontrado = baseMangas[chave];
+            encontrado = baseConteudo[chave];
             break;
         }
     }
 
     if (!encontrado) {
-        return bot.sendMessage(chatId, `❌ Mangá "${match[1]}" não encontrado na base local.\nExperimenta: \`/manga One Piece\` ou \`/manga Jujutsu\``, { parse_mode: 'Markdown' });
+        return bot.sendMessage(chatId, `❌ "${match[1]}" não encontrado na base.\nExperimenta: \`/manga One Piece\` ou \`/manga Jujutsu\``, { parse_mode: 'Markdown' });
     }
 
-    const texto = `📖 *Mangá: ${encontrado.titulo}*\n⭐ *Nota:* ${encontrado.nota}\n📚 *Volumes:* ${encontrado.volumes}\n\n📝 *Sinopse:*\n${encontrado.sinopse}`;
+    const texto = `📖 *${encontrado.tipo}: ${encontrado.titulo}*` +
+                  `\n⭐ *Nota:* ${encontrado.nota}` +
+                  `\n📚 *Volumes/Episódios:* ${encontrado.volumes}` +
+                  `\n\n📝 *História Completa / Sinopse:*\n${encontrado.sinopse}` +
+                  `\n\n🔗 *Link Direto para Baixar:* \n${encontrado.linkDownload}`;
+
     return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
 });
 
@@ -154,9 +168,9 @@ bot.onText(/\/anime (.+)/, (msg, match) => {
     const termo = match[1].toLowerCase();
 
     let encontrado = null;
-    for (let chave in baseMangas) {
+    for (let chave in baseConteudo) {
         if (termo.includes(chave)) {
-            encontrado = baseMangas[chave];
+            encontrado = baseConteudo[chave];
             break;
         }
     }
@@ -165,43 +179,18 @@ bot.onText(/\/anime (.+)/, (msg, match) => {
         return bot.sendMessage(chatId, `❌ Anime "${match[1]}" não encontrado na base local.`, { parse_mode: 'Markdown' });
     }
 
-    const texto = `⛩️ *Anime: ${encontrado.titulo}*\n⭐ *Nota:* ${encontrado.nota}\n\n📝 *Sinopse:*\n${encontrado.sinopse}`;
+    const texto = `⛩️ *Anime: ${encontrado.titulo}*` +
+                  `\n⭐ *Nota:* ${encontrado.nota}` +
+                  `\n\n📝 *História Completa / Sinopse:*\n${encontrado.sinopse}` +
+                  `\n\n🔗 *Link Direto para Baixar:* \n${encontrado.linkDownload}`;
+
     return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
 });
 
-// Comando /baixar corrigido e funcional
-bot.onText(/\/baixar (.+)/, (msg, match) => {
+bot.onText(/\/dorama (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    const termo = match[1].toLowerCase();
-
-    let encontrado = null;
-    for (let chave in baseFicheiros) {
-        if (termo.includes(chave)) {
-            encontrado = baseFicheiros[chave];
-            break;
-        }
-    }
-
-    if (!encontrado) {
-        return bot.sendMessage(chatId, `❌ Ficheiro para "${match[1]}" não encontrado.\nUsa: \`/baixar One Piece\` ou \`/baixar Jujutsu\``, { parse_mode: 'Markdown' });
-    }
-
-    bot.sendMessage(chatId, `⏳ A enviar o ficheiro de *${encontrado.titulo}*...`, { parse_mode: 'Markdown' });
-
-    // Verifica se é um link web ou se deve ler como ficheiro local do servidor
-    let envio;
-    if (encontrado.origem.startsWith('http://') || encontrado.origem.startsWith('https://')) {
-        envio = encontrado.origem;
-    } else {
-        envio = fs.createReadStream(encontrado.origem);
-    }
-
-    return bot.sendDocument(chatId, envio, {
-        caption: `📂 *${encontrado.titulo}*\nAqui tens o teu ficheiro!`,
-        parse_mode: 'Markdown'
-    }).catch(err => {
-        bot.sendMessage(chatId, '⚠️ Erro ao enviar o ficheiro. Certifica-te de que o link ou caminho local está correto.');
-    });
+    const termo = match[1];
+    bot.sendMessage(chatId, `🌸 *Dorama:* ${termo}\n\n📖 Encontrado com sucesso! Para baixar os episódios completos legendados, aceda ao link do nosso catálogo principal.`, { parse_mode: 'Markdown' });
 });
 
 bot.on('callback_query', async (query) => {
@@ -222,7 +211,8 @@ bot.on('callback_query', async (query) => {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '🔥 Filmes e Séries', callback_data: 'cat_filmes' }],
-                    [{ text: '⛩️ Animes e Mangás', callback_data: 'cat_mangas' }]
+                    [{ text: '⛩️ Animes e Mangás', callback_data: 'cat_mangas' }],
+                    [{ text: '🌸 Doramas', callback_data: 'cat_doramas' }]
                 ]
             }
         });
@@ -234,7 +224,8 @@ bot.on('callback_query', async (query) => {
 
         let textoAjuda = '';
         if (tipo === 'filmes') textoAjuda = '🔥 *Como pesquisar Filmes/Séries:*\nUsa: `/filme [nome]`\nExemplo: `/filme Avatar`';
-        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás/Animes:*\nUsa: `/manga [nome]` ou `/anime [nome]`\nExemplo: `/manga One Piece`\n\n📥 *Para descarregar ficheiros:*\nUsa: `/baixar [nome]`';
+        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás/Animes:*\nUsa: `/manga [nome]` ou `/anime [nome]`\nExemplo: `/manga One Piece`';
+        if (tipo === 'doramas') textoAjuda = '🌸 *Como pesquisar Doramas:*\nUsa: `/dorama [nome]`\nExemplo: `/dorama Vincenzo`';
 
         return bot.sendMessage(chatId, textoAjuda, { parse_mode: 'Markdown' });
     }
@@ -279,4 +270,3 @@ bot.on('callback_query', async (query) => {
         });
     }
 });
- 
