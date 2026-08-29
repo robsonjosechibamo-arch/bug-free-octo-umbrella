@@ -4,7 +4,7 @@
   "description": "Bot de jogos e entretenimento",
   "main": "bot.js",
   "scripts": {
-    "start": "node gerador.js && node bot.js"
+    "start": "node bot.js"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.61.0",
