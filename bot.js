@@ -1,5 +1,6 @@
 const http = require('http');
 const fs = require('fs');
+const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
 
 const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
@@ -67,17 +68,97 @@ bot.onText(/\/start/, (msg) => {
 });
 
 bot.onText(/\/catalogo|categorias/, (msg) => {
-    bot.sendMessage(msg.chat.id, '📂 *Escolhe uma categoria para ver como pesquisar:*', {
+    bot.sendMessage(msg.chat.id, '📂 *Escolhe uma categoria:*', {
         parse_mode: 'Markdown',
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🔥 Filmes', callback_data: 'cat_filmes' }],
-                [{ text: '📺 Séries', callback_data: 'cat_series' }],
+                [{ text: '🔥 Filmes e Séries', callback_data: 'cat_filmes' }],
                 [{ text: '⛩️ Animes', callback_data: 'cat_animes' }],
                 [{ text: '📖 Mangás', callback_data: 'cat_mangas' }]
             ]
         }
     });
+});
+
+// Pesquisa de Filmes e Séries
+bot.onText(/\/filme (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const termo = match[1];
+
+    bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"*...`, { parse_mode: 'Markdown' });
+
+    try {
+        const res = await axios.get(`https://api.themoviedb.org/3/search/multi?api_key=3d4516a7f454743260dd242e23d532f6&query=${encodeURIComponent(termo)}&language=pt-PT`, { timeout: 8000 });
+        const resultados = res.data.results;
+
+        if (!resultados || resultados.length === 0) {
+            return bot.sendMessage(chatId, '❌ Nenhum resultado encontrado.');
+        }
+
+        const item = resultados[0];
+        const titulo = item.title || item.name || 'Desconhecido';
+        const sinopse = item.overview || 'Sinopse indisponível.';
+        const data = item.release_date || item.first_air_date || 'Desconhecido';
+        const ano = data.split('-')[0];
+        const tipo = item.media_type === 'tv' ? 'Série' : 'Filme';
+
+        const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *Sinopse:*\n${sinopse}`;
+        return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+    } catch (e) {
+        return bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados de filmes.');
+    }
+});
+
+// Pesquisa de Animes
+bot.onText(/\/anime (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const termo = match[1];
+
+    bot.sendMessage(chatId, `⛩️ A procurar pelo anime *"${termo}"*...`, { parse_mode: 'Markdown' });
+
+    try {
+        const res = await axios.get(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(termo)}&limit=1`, { 
+            headers: { 'User-Agent': 'BotTelegram/1.0' },
+            timeout: 8000 
+        });
+        const resultados = res.data.data;
+
+        if (!resultados || resultados.length === 0) {
+            return bot.sendMessage(chatId, '❌ Nenhum anime encontrado.');
+        }
+
+        const anime = resultados[0];
+        const texto = `⛩️ *Anime: ${anime.title}*\n⭐ *Nota:* ${anime.score || 'N/A'}/10\n📺 *Episódios:* ${anime.episodes || 'Desconhecido'}\n\n📖 *Sinopse:*\n${anime.synopsis || 'Indisponível'}`;
+        return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+    } catch (e) {
+        return bot.sendMessage(chatId, '⚠️ Erro ao consultar a base de animes.');
+    }
+});
+
+// Pesquisa de Mangás
+bot.onText(/\/manga (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const termo = match[1];
+
+    bot.sendMessage(chatId, `📖 A procurar pelo mangá *"${termo}"*...`, { parse_mode: 'Markdown' });
+
+    try {
+        const res = await axios.get(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(termo)}&limit=1`, { 
+            headers: { 'User-Agent': 'BotTelegram/1.0' },
+            timeout: 8000 
+        });
+        const resultados = res.data.data;
+
+        if (!resultados || resultados.length === 0) {
+            return bot.sendMessage(chatId, '❌ Nenhum mangá encontrado.');
+        }
+
+        const manga = resultados[0];
+        const texto = `📖 *Mangá: ${manga.title}*\n⭐ *Nota:* ${manga.score || 'N/A'}/10\n📚 *Volumes:* ${manga.volumes || 'Desconhecido'}\n\n📝 *Sinopse:*\n${manga.synopsis || 'Indisponível'}`;
+        return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+    } catch (e) {
+        return bot.sendMessage(chatId, '⚠️ Erro ao consultar a base de mangás.');
+    }
 });
 
 bot.on('callback_query', async (query) => {
@@ -97,8 +178,7 @@ bot.on('callback_query', async (query) => {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: '🔥 Filmes', callback_data: 'cat_filmes' }],
-                    [{ text: '📺 Séries', callback_data: 'cat_series' }],
+                    [{ text: '🔥 Filmes e Séries', callback_data: 'cat_filmes' }],
                     [{ text: '⛩️ Animes', callback_data: 'cat_animes' }],
                     [{ text: '📖 Mangás', callback_data: 'cat_mangas' }]
                 ]
@@ -111,10 +191,9 @@ bot.on('callback_query', async (query) => {
         try { await bot.answerCallbackQuery(query.id); } catch (e) {}
 
         let textoAjuda = '';
-        if (tipo === 'filmes') textoAjuda = '🔥 *Como pesquisar Filmes:*\nUsa o comando: `/filme [nome do filme]`\nExemplo: `/filme Avatar`';
-        if (tipo === 'series') textoAjuda = '📺 *Como pesquisar Séries:*\nUsa o comando: `/filme [nome da série]`\nExemplo: `/filme Loki`';
-        if (tipo === 'animes') textoAjuda = '⛩️ *Como pesquisar Animes:*\nUsa o comando: `/anime [nome do anime]`\nExemplo: `/anime Naruto`';
-        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás:*\nUsa o comando: `/manga [nome do mangá]`\nExemplo: `/manga One Piece`';
+        if (tipo === 'filmes') textoAjuda = '🔥 *Como pesquisar Filmes/Séries:*\nUsa: `/filme [nome]`\nExemplo: `/filme Avatar`';
+        if (tipo === 'animes') textoAjuda = '⛩️ *Como pesquisar Animes:*\nUsa: `/anime [nome]`\nExemplo: `/anime Naruto`';
+        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás:*\nUsa: `/manga [nome]`\nExemplo: `/manga One Piece`';
 
         return bot.sendMessage(chatId, textoAjuda, { parse_mode: 'Markdown' });
     }
@@ -159,3 +238,4 @@ bot.on('callback_query', async (query) => {
         });
     }
 });
+ 
