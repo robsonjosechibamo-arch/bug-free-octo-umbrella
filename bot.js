@@ -50,20 +50,24 @@ try {
 const pontuacoes = {}; 
 const jogoAtualPorChat = {}; 
 
-// Base local de Mangás e Animes (Mantida intacta)
+// Base local de Mangás e Animes (Texto/Sinopse - Intacta)
 const baseMangas = {
     'one piece': { titulo: 'One Piece', nota: '9.2/10', volumes: '108+', sinopse: 'A jornada de Monkey D. Luffy para se tornar o Rei dos Piratas.' },
     'jujutsu': { titulo: 'Jujutsu Kaisen', nota: '8.8/10', volumes: '26', sinopse: 'Yuji Itadori engole um dedo amaldiçoado e entra para o mundo dos feiticeiros.' },
     'naruto': { titulo: 'Naruto', nota: '8.5/10', volumes: '72', sinopse: 'Um jovem ninja que busca reconhecimento e o sonho de se tornar Hokage.' }
 };
 
-// ==========================================
-// NOVA BASE DE FICHEIROS (Para não alterar a antiga)
-// Podes colocar aqui links diretos de download ou caminhos de ficheiros
-// ==========================================
+// Base de Ficheiros Reais para o comando /baixar
+// Podes usar um link direto válido OU o caminho de um ficheiro local (ex: './ficheiros/jujutsu.pdf')
 const baseFicheiros = {
-    'one piece': { titulo: 'One Piece - Capítulo/Pack', url: 'https://exemplo.com/ficheiro_one_piece.pdf' },
-    'jujutsu': { titulo: 'Jujutsu Kaisen - Mangá PDF', url: 'https://exemplo.com/ficheiro_jujutsu.pdf' }
+    'one piece': { 
+        titulo: 'One Piece - Capítulo/Pack', 
+        origem: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' // Exemplo de link PDF válido para teste
+    },
+    'jujutsu': { 
+        titulo: 'Jujutsu Kaisen - Mangá PDF', 
+        origem: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' // Exemplo de link PDF válido para teste
+    }
 };
 
 bot.onText(/\/start/, (msg) => {
@@ -95,7 +99,7 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
     });
 });
 
-// Pesquisa de Filmes e Séries (Mantida intacta)
+// Pesquisa de Filmes e Séries (Intacta)
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
@@ -124,7 +128,7 @@ bot.onText(/\/filme (.+)/, async (msg, match) => {
     }
 });
 
-// Pesquisa de Mangás (Mantida intacta - apenas texto/sinopse)
+// Pesquisa de Mangás (Intacta - Texto)
 bot.onText(/\/manga (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1].toLowerCase();
@@ -165,9 +169,7 @@ bot.onText(/\/anime (.+)/, (msg, match) => {
     return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
 });
 
-// ==========================================
-// NOVO COMANDO: /baixar [nome] (Envia o ficheiro real)
-// ==========================================
+// Comando /baixar corrigido e funcional
 bot.onText(/\/baixar (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1].toLowerCase();
@@ -186,12 +188,19 @@ bot.onText(/\/baixar (.+)/, (msg, match) => {
 
     bot.sendMessage(chatId, `⏳ A enviar o ficheiro de *${encontrado.titulo}*...`, { parse_mode: 'Markdown' });
 
-    // Envia o documento utilizando o URL ou caminho do ficheiro
-    return bot.sendDocument(chatId, encontrado.url, {
+    // Verifica se é um link web ou se deve ler como ficheiro local do servidor
+    let envio;
+    if (encontrado.origem.startsWith('http://') || encontrado.origem.startsWith('https://')) {
+        envio = encontrado.origem;
+    } else {
+        envio = fs.createReadStream(encontrado.origem);
+    }
+
+    return bot.sendDocument(chatId, envio, {
         caption: `📂 *${encontrado.titulo}*\nAqui tens o teu ficheiro!`,
         parse_mode: 'Markdown'
     }).catch(err => {
-        bot.sendMessage(chatId, '⚠️ Erro ao enviar o ficheiro. Verifique se o link de download é direto e válido.');
+        bot.sendMessage(chatId, '⚠️ Erro ao enviar o ficheiro. Certifica-te de que o link ou caminho local está correto.');
     });
 });
 
@@ -270,3 +279,4 @@ bot.on('callback_query', async (query) => {
         });
     }
 });
+ 
