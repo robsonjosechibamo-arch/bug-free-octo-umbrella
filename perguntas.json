@@ -1,0 +1,42 @@
+[
+  {
+    "id": "q1",
+    "pergunta": "🧮 Quanto é `15 + 25`?",
+    "opcoes": [
+      { "texto": "35", "valor": "errado1" },
+      { "texto": "40", "valor": "certo" },
+      { "texto": "45", "valor": "errado2" }
+    ],
+    "respostaCerta": "certo"
+  },
+  {
+    "id": "q2",
+    "pergunta": "🧮 Quanto é `50 - 18`?",
+    "opcoes": [
+      { "texto": "32", "valor": "certo" },
+      { "texto": "30", "valor": "errado1" },
+      { "texto": "34", "valor": "errado2" }
+    ],
+    "respostaCerta": "certo"
+  },
+  {
+    "id": "q3",
+    "pergunta": "🧮 Quanto é `8 * 7`?",
+    "opcoes": [
+      { "texto": "54", "valor": "errado1" },
+      { "texto": "56", "valor": "certo" },
+      { "texto": "62", "valor": "errado2" }
+    ],
+    "respostaCerta": "certo"
+  },
+  {
+    "id": "q4",
+    "pergunta": "🧮 Quanto é `81 / 9`?",
+    "opcoes": [
+      { "texto": "8", "valor": "errado1" },
+      { "texto": "9", "valor": "certo" },
+      { "texto": "7", "valor": "errado2" }
+    ],
+    "respostaCerta": "certo"
+  }
+]
