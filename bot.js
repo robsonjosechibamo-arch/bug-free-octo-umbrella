@@ -247,10 +247,57 @@ bot.on('callback_query', async (query) => {
         return bot.sendMessage(chatId, '📂 *Escolhe uma categoria abaixo:*', { parse_mode: 'Markdown', ...tecladoCategorias });
     }
 
-    // Processar cliques nas categorias do catálogo
+        // Processar cliques nas categorias do catálogo
     if (acao.startsWith('cat_')) {
         const tipoCat = acao.replace('cat_', '');
         bot.answerCallbackQuery(query.id, { text: 'A carregar lista...' });
+
+        try {
+            if (tipoCat === 'filmes_pop') {
+                const res = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
+                const itens = res.data.results.slice(0, 5);
+                let texto = '🔥 *Filmes Populares no Momento:*\n\n';
+                itens.forEach((f, i) => {
+                    texto += `${i + 1}. *${f.title}* (⭐ ${f.vote_average})\n👉 Usa: \`/filme ${f.title}\`\n\n`;
+                });
+                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+            }
+
+            if (tipoCat === 'series_pop') {
+                const res = await axios.get(`https://api.themoviedb.org/3/tv/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
+                const itens = res.data.results.slice(0, 5);
+                let texto = '📺 *Séries e Doramas em Alta:*\n\n';
+                itens.forEach((s, i) => {
+                    texto += `${i + 1}. *${s.name}* (⭐ ${s.vote_average})\n👉 Usa: \`/filme ${s.name}\`\n\n`;
+                });
+                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+            }
+
+            if (tipoCat === 'animes_pop') {
+                const res = await axios.get(`https://api.jikan.moe/v4/top/anime?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
+                const itens = res.data.data;
+                let texto = '⛩️ *Animes Mais Vistos:*\n\n';
+                itens.forEach((a, i) => {
+                    texto += `${i + 1}. *${a.title}* (⭐ ${a.score})\n👉 Usa: \`/anime ${a.title}\`\n\n`;
+                });
+                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+            }
+
+            if (tipoCat === 'manga_pop' || tipoCat === 'mangá_pop') {
+                const res = await axios.get(`https://api.jikan.moe/v4/top/manga?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
+                const itens = res.data.data;
+                let texto = '📖 *Mangás Populares:*\n\n';
+                itens.forEach((m, i) => {
+                    texto += `${i + 1}. *${m.title}* (⭐ ${m.score})\n👉 Usa: \`/manga ${m.title}\`\n\n`;
+                });
+                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+            }
+
+        } catch (e) {
+            console.error("Erro no catálogo:", e.message);
+            bot.sendMessage(chatId, '⚠️ Erro ao carregar a lista de categorias. Tenta novamente.');
+        }
+    }
 
         try {
             if (tipoCat === 'filmes_pop') {
