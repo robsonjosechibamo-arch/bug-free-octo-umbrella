@@ -1,6 +1,5 @@
 const http = require('http');
 const fs = require('fs');
-const axios = require('axios');
 const TelegramBot = require('node-telegram-bot-api');
 
 const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
@@ -48,7 +47,6 @@ try {
 }
 
 const pontuacoes = {}; 
-const ultimosJogos = {}; 
 const jogoAtualPorChat = {}; 
 
 bot.onText(/\/start/, (msg) => {
@@ -69,14 +67,14 @@ bot.onText(/\/start/, (msg) => {
 });
 
 bot.onText(/\/catalogo|categorias/, (msg) => {
-    bot.sendMessage(msg.chat.id, '📂 *Escolhe uma categoria:*', {
+    bot.sendMessage(msg.chat.id, '📂 *Escolhe uma categoria para ver como pesquisar:*', {
         parse_mode: 'Markdown',
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🔥 Filmes', callback_data: 'cat_filmes_pop' }],
-                [{ text: '📺 Séries', callback_data: 'cat_series_pop' }],
-                [{ text: '⛩️ Animes', callback_data: 'cat_animes_pop' }],
-                [{ text: '📖 Mangás', callback_data: 'cat_manga_pop' }]
+                [{ text: '🔥 Filmes', callback_data: 'cat_filmes' }],
+                [{ text: '📺 Séries', callback_data: 'cat_series' }],
+                [{ text: '⛩️ Animes', callback_data: 'cat_animes' }],
+                [{ text: '📖 Mangás', callback_data: 'cat_mangas' }]
             ]
         }
     });
@@ -99,10 +97,10 @@ bot.on('callback_query', async (query) => {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: '🔥 Filmes', callback_data: 'cat_filmes_pop' }],
-                    [{ text: '📺 Séries', callback_data: 'cat_series_pop' }],
-                    [{ text: '⛩️ Animes', callback_data: 'cat_animes_pop' }],
-                    [{ text: '📖 Mangás', callback_data: 'cat_manga_pop' }]
+                    [{ text: '🔥 Filmes', callback_data: 'cat_filmes' }],
+                    [{ text: '📺 Séries', callback_data: 'cat_series' }],
+                    [{ text: '⛩️ Animes', callback_data: 'cat_animes' }],
+                    [{ text: '📖 Mangás', callback_data: 'cat_mangas' }]
                 ]
             }
         });
@@ -110,48 +108,15 @@ bot.on('callback_query', async (query) => {
 
     if (acao.startsWith('cat_')) {
         const tipo = acao.replace('cat_', '');
-        try { await bot.answerCallbackQuery(query.id, { text: 'A carregar...' }); } catch (e) {}
+        try { await bot.answerCallbackQuery(query.id); } catch (e) {}
 
-        try {
-            if (tipo === 'filmes_pop') {
-                const res = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
-                let txt = '🔥 *Filmes:*\n\n';
-                res.data.results.slice(0, 5).forEach((f, i) => {
-                    txt += `${i + 1}. *${f.title}* (⭐ ${f.vote_average})\n`;
-                });
-                return bot.sendMessage(chatId, txt, { parse_mode: 'Markdown' });
-            }
+        let textoAjuda = '';
+        if (tipo === 'filmes') textoAjuda = '🔥 *Como pesquisar Filmes:*\nUsa o comando: `/filme [nome do filme]`\nExemplo: `/filme Avatar`';
+        if (tipo === 'series') textoAjuda = '📺 *Como pesquisar Séries:*\nUsa o comando: `/filme [nome da série]`\nExemplo: `/filme Loki`';
+        if (tipo === 'animes') textoAjuda = '⛩️ *Como pesquisar Animes:*\nUsa o comando: `/anime [nome do anime]`\nExemplo: `/anime Naruto`';
+        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás:*\nUsa o comando: `/manga [nome do mangá]`\nExemplo: `/manga One Piece`';
 
-            if (tipo === 'series_pop') {
-                const res = await axios.get(`https://api.themoviedb.org/3/tv/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
-                let txt = '📺 *Séries:*\n\n';
-                res.data.results.slice(0, 5).forEach((s, i) => {
-                    txt += `${i + 1}. *${s.name}* (⭐ ${s.vote_average})\n`;
-                });
-                return bot.sendMessage(chatId, txt, { parse_mode: 'Markdown' });
-            }
-
-            if (tipo === 'animes_pop') {
-                const res = await axios.get(`https://api.jikan.moe/v4/top/anime?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
-                let txt = '⛩️ *Animes:*\n\n';
-                res.data.data.forEach((a, i) => {
-                    txt += `${i + 1}. *${a.title}* (⭐ ${a.score})\n`;
-                });
-                return bot.sendMessage(chatId, txt, { parse_mode: 'Markdown' });
-            }
-
-            if (tipo === 'manga_pop') {
-                const res = await axios.get(`https://api.jikan.moe/v4/top/manga?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
-                let txt = '📖 *Mangás:*\n\n';
-                res.data.data.forEach((m, i) => {
-                    txt += `${i + 1}. *${m.title}* (⭐ ${m.score})\n`;
-                });
-                return bot.sendMessage(chatId, txt, { parse_mode: 'Markdown' });
-            }
-        } catch (e) {
-            console.error("Erro:", e.message);
-            return bot.sendMessage(chatId, `⚠️ ERRO EXATO: ${e.message}`);
-        }
+        return bot.sendMessage(chatId, textoAjuda, { parse_mode: 'Markdown' });
     }
 
     if (acao === 'proximo_jogo') {
