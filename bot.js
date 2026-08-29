@@ -50,7 +50,10 @@ try {
 const pontuacoes = {}; 
 const jogoAtualPorChat = {}; 
 
-// Base Completa com Histórias, Detalhes e Links de Download para Mangás/Animes/Doramas
+// =========================================================================
+// BASE DE DADOS COMPLETA (Mangás, Animes, Séries, Filmes e Doramas)
+// Poca alteração necessária: podes mudar o linkDownload para o teu link real
+// =========================================================================
 const baseConteudo = {
     'one piece': { 
         tipo: 'Mangá / Anime',
@@ -58,7 +61,7 @@ const baseConteudo = {
         nota: '9.2/10', 
         volumes: '108+ (História Completa)', 
         sinopse: 'A jornada épica de Monkey D. Luffy e a sua tripulação em busca do tesouro lendário para se tornar o Rei dos Piratas.',
-        linkDownload: 'https://exemplo.com/download/one-piece-completo.pdf' 
+        linkDownload: 'https://t.me/o_teu_canal_telegram' 
     },
     'jujutsu': { 
         tipo: 'Mangá / Anime',
@@ -66,7 +69,7 @@ const baseConteudo = {
         nota: '8.8/10', 
         volumes: '26 (Completo)', 
         sinopse: 'Yuji Itadori engole um dedo amaldiçoado de Ryomen Sukuna, entrando de cabeça no perigoso mundo das maldições e feiticeiros.',
-        linkDownload: 'https://exemplo.com/download/jujutsu-kaisen-completo.pdf' 
+        linkDownload: 'https://t.me/o_teu_canal_telegram' 
     },
     'naruto': { 
         tipo: 'Mangá / Anime',
@@ -74,10 +77,13 @@ const baseConteudo = {
         nota: '8.5/10', 
         volumes: '72 (Completo)', 
         sinopse: 'A história de Naruto Uzumaki, um ninja rejeitado que sonha em se tornar Hokage, o líder da sua vila.',
-        linkDownload: 'https://exemplo.com/download/naruto-completo.pdf' 
+        linkDownload: 'https://t.me/o_teu_canal_telegram' 
     }
 };
 
+// =========================================================================
+// COMANDOS PRINCIPAIS
+// =========================================================================
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
@@ -108,7 +114,7 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
     });
 });
 
-// Pesquisa de Filmes, Séries e Doramas via TMDB (Com link de apoio/streaming simulado)
+// Pesquisa de Filmes e Séries (API TMDB)
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
@@ -130,14 +136,14 @@ bot.onText(/\/filme (.+)/, async (msg, match) => {
         const ano = data.split('-')[0];
         const tipo = item.media_type === 'tv' ? 'Série / Dorama' : 'Filme';
 
-        const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *História / Sinopse:*\n${sinopse}\n\n📥 *Para baixar:* Utilize o nosso canal oficial ou digite o nome na categoria correspondente.`;
+        const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *História / Sinopse:*\n${sinopse}\n\n📥 *Para baixar:* Aceda ao nosso canal oficial para obter o ficheiro completo.`;
         return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
     } catch (e) {
         return bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados.');
     }
 });
 
-// Pesquisa detalhada de Mangás e Animes com história completa e link de download direto
+// Pesquisa de Mangás
 bot.onText(/\/manga (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1].toLowerCase();
@@ -151,18 +157,19 @@ bot.onText(/\/manga (.+)/, (msg, match) => {
     }
 
     if (!encontrado) {
-        return bot.sendMessage(chatId, `❌ "${match[1]}" não encontrado na base.\nExperimenta: \`/manga One Piece\` ou \`/manga Jujutsu\``, { parse_mode: 'Markdown' });
+        return bot.sendMessage(chatId, `❌ "${match[1]}" não encontrado.\nExperimenta: \`/manga One Piece\` ou \`/manga Jujutsu\``, { parse_mode: 'Markdown' });
     }
 
     const texto = `📖 *${encontrado.tipo}: ${encontrado.titulo}*` +
                   `\n⭐ *Nota:* ${encontrado.nota}` +
                   `\n📚 *Volumes/Episódios:* ${encontrado.volumes}` +
                   `\n\n📝 *História Completa / Sinopse:*\n${encontrado.sinopse}` +
-                  `\n\n🔗 *Link Direto para Baixar:* \n${encontrado.linkDownload}`;
+                  `\n\n🔗 *Link para Baixar:* \n${encontrado.linkDownload}`;
 
     return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
 });
 
+// Pesquisa de Animes
 bot.onText(/\/anime (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1].toLowerCase();
@@ -182,17 +189,21 @@ bot.onText(/\/anime (.+)/, (msg, match) => {
     const texto = `⛩️ *Anime: ${encontrado.titulo}*` +
                   `\n⭐ *Nota:* ${encontrado.nota}` +
                   `\n\n📝 *História Completa / Sinopse:*\n${encontrado.sinopse}` +
-                  `\n\n🔗 *Link Direto para Baixar:* \n${encontrado.linkDownload}`;
+                  `\n\n🔗 *Link para Baixar:* \n${encontrado.linkDownload}`;
 
     return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
 });
 
+// Pesquisa de Doramas
 bot.onText(/\/dorama (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
-    bot.sendMessage(chatId, `🌸 *Dorama:* ${termo}\n\n📖 Encontrado com sucesso! Para baixar os episódios completos legendados, aceda ao link do nosso catálogo principal.`, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, `🌸 *Dorama:* ${termo}\n\n📖 Encontrado com sucesso! Para baixar os episódios completos legendados, aceda ao canal oficial do bot.`, { parse_mode: 'Markdown' });
 });
 
+// =========================================================================
+// SISTEMA DE BOTÕES (CALLBACK QUERIES)
+// =========================================================================
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
