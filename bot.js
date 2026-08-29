@@ -297,17 +297,6 @@ REGRAS:
         );
     }
 });
-    try {
-        // Podes obter uma chave gratuita da API do Google Gemini no Google AI Studio
-        // Ou utilizar um endpoint público alternativo se preferires não usar chave.
-        const respostaIa = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=SUA_CHAVE_API_AQUI`, {
-            contents: [{ parts: [{ text: pergunta }] }]
-        });
-
-        let textoResposta = respostaIa.data.candidates[0].content.parts[0].text;
-
-        bot.sendMessage(chatId, `💡 *Resposta da IA:*\n\n${textoResposta}`, { parse_mode: 'Markdown' });
-    } catch (e) {
         // Alternativa de fallback caso queiras manter sem chave (usando uma API pública de chat livre)
         try {
             const respostaAlternativa = await axios.get(`https://api.popcat.xyz/chatbot?msg=${encodeURIComponent(pergunta)}`);
