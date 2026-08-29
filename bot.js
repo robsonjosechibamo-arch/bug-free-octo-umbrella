@@ -37,7 +37,7 @@ server.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
 
-// Carrega as perguntas geradas pelo gerador.js
+// Carrega as perguntas do ficheiro perguntas.json
 let bancoDeJogos = [];
 try {
     const dadosArquivo = fs.readFileSync('perguntas.json', 'utf8');
@@ -76,22 +76,20 @@ bot.onText(/\/start/, (msg) => {
     bot.sendMessage(chatId,   
         '🤖 *Bem-vindo ao Super Bot de Matemática e Utilidades!*\n\n' +  
         '🧠 *Jogos:* Responde aos desafios matemáticos para acumular pontos.\n' +  
-        '🧮 *Calculadora:* `/calc [expressão]` (ex: `/calc 15 + 25`)\n' +
+        '🧮 *Calculadora:* `/calc [expressão]` (ex: `/calc 50:5`)\n' +
         '🌤️ *Previsão do Tempo:* `/tempo [cidade]`\n\n' +  
         'Clica abaixo para começar:',   
         { parse_mode: 'Markdown', ...teclado }  
     );
 });
-// Comando Calculadora
+
+// Comando Calculadora (com suporte a : e /)
 bot.onText(/\/calc (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    let expressao = match[1];
+    const expressao = match[1];
 
     try {
-        // Substitui os dois pontos (:) por sinal de divisão real (/)
-        expressaoFormatada = expressao.replace(/:/g, '/');
-
-        // Permite apenas números, operadores seguros e parênteses
+        const expressaoFormatada = expressao.replace(/:/g, '/');
         const resultado = eval(expressaoFormatada.replace(/[^0-9+\-*/().]/g, ''));
         
         if (resultado === undefined || isNaN(resultado)) {
@@ -102,6 +100,7 @@ bot.onText(/\/calc (.+)/, (msg, match) => {
         bot.sendMessage(chatId, '❌ Erro ao calcular a expressão.');
     }
 });
+
 // Comando Previsão do Tempo
 bot.onText(/\/tempo (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
@@ -134,7 +133,30 @@ bot.onText(/\/tempo (.+)/, async (msg, match) => {
         bot.sendMessage(chatId, '⚠️ Erro ao consultar a previsão do tempo. Tenta novamente mais tarde.');
     }
 });
-        // Reinicia o ciclo se já tiver respondido a todas as perguntas do banco
+
+// Gestão de Botões (Callback Query)
+bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const acao = query.data;
+
+    if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
+    if (!historicoPerguntasPorChat[chatId]) historicoPerguntasPorChat[chatId] = [];
+
+    if (acao === 'ver_pontos') {  
+        try { 
+            await bot.answerCallbackQuery(query.id); 
+        } catch (e) {}  
+        return bot.sendMessage(chatId, `🏆 Tens atualmente *${pontuacoes[chatId]}* pontos!`, { parse_mode: 'Markdown' });  
+    }  
+
+    if (acao === 'proximo_jogo') {  
+        if (!bancoDeJogos || bancoDeJogos.length === 0) {
+            try { 
+                await bot.answerCallbackQuery(query.id, { text: 'Sem perguntas disponíveis!' }); 
+            } catch (e) {}
+            return;
+        }
+
         if (historicoPerguntasPorChat[chatId].length >= bancoDeJogos.length) {
             historicoPerguntasPorChat[chatId] = [];
         }
@@ -153,10 +175,13 @@ bot.onText(/\/tempo (.+)/, async (msg, match) => {
         jogoAtualPorChat[chatId] = { respostaCerta: jogoSorteado.respostaCerta };  
 
         const botoesOpcoes = jogoSorteado.opcoes.map(opcao => {  
-            return [{ text: opcao.texto, callback_data: `resp_${opcao.valor}` }];  
+            return [{ text:opcao.texto, callback_data: `resp_${opcao.valor}` }];  
         });  
 
-        try { await bot.answerCallbackQuery(query.id); } catch (e) {}  
+        try { 
+            await bot.answerCallbackQuery(query.id); 
+        } catch (e) {}  
+
         return bot.sendMessage(chatId, `${jogoSorteado.pergunta}\n\n👇 *Escolha uma opção:*`, {  
             parse_mode: 'Markdown',  
             reply_markup: { inline_keyboard: botoesOpcoes }  
@@ -168,7 +193,9 @@ bot.onText(/\/tempo (.+)/, async (msg, match) => {
         const dadosJogo = jogoAtualPorChat[chatId];  
 
         if (!dadosJogo) {  
-            try { await bot.answerCallbackQuery(query.id, { text: '⚠️ Desafio expirado!' }); } catch (e) {}  
+            try { 
+                await bot.answerCallbackQuery(query.id, { text: '⚠️ Desafio expirado!' }); 
+            } catch (e) {}  
             return;  
         }  
 
@@ -176,7 +203,10 @@ bot.onText(/\/tempo (.+)/, async (msg, match) => {
             pontuacoes[chatId] += 10;  
             delete jogoAtualPorChat[chatId];  
 
-            try { await bot.answerCallbackQuery(query.id, { text: '🎉 Correto! +10 pontos' }); } catch (e) {}  
+            try { 
+                await bot.answerCallbackQuery(query.id, { text: '🎉 Correto! +10 pontos' }); 
+            } catch (e) {}  
+
             return bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste!**\nTotal: *${pontuacoes[chatId]}* pontos`, {  
                 parse_mode: 'Markdown',  
                 reply_markup: {  
@@ -184,7 +214,10 @@ bot.onText(/\/tempo (.+)/, async (msg, match) => {
                 }  
             });  
         } else {  
-            try { await bot.answerCallbackQuery(query.id, { text: '❌ Errado!' }); } catch (e) {}  
+            try { 
+                await bot.answerCallbackQuery(query.id, { text: '❌ Errado!' }); 
+            } catch (e) {}  
+
             return bot.sendMessage(chatId, `❌ **Resposta incorreta!**`, {  
                 parse_mode: 'Markdown',  
                 reply_markup: {  
