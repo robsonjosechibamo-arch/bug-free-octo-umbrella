@@ -106,8 +106,7 @@ bot.onText(/\/calc (.+)/, (msg, match) => {
         bot.sendMessage(chatId, '❌ Erro ao calcular a expressão.');
     }
 });
-
-// Comando IA de Ajuda Pessoal (utilizando uma API pública gratuita e inteligente)
+// Comando IA atualizado com suporte real a respostas inteligentes
 bot.onText(/\/ia (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const pergunta = match[1];
@@ -115,25 +114,27 @@ bot.onText(/\/ia (.+)/, async (msg, match) => {
     bot.sendMessage(chatId, '💡 *A IA está a pensar numa resposta para ti...*', { parse_mode: 'Markdown' });
 
     try {
-        const respostaIa = await axios.get(`https://api.duckduckgo.com/?q=${encodeURIComponent(pergunta)}&format=json`);
-        let textoResposta = '';
+        // Podes obter uma chave gratuita da API do Google Gemini no Google AI Studio
+        // Ou utilizar um endpoint público alternativo se preferires não usar chave.
+        const respostaIa = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=SUA_CHAVE_API_AQUI`, {
+            contents: [{ parts: [{ text: pergunta }] }]
+        });
 
-        if (respostaIa.data && respostaIa.data.AbstractText) {
-            textoResposta = respostaIa.data.AbstractText;
-        } else if (respostaIa.data && respostaIa.data.RelatedTopics && respostaIa.data.RelatedTopics.length > 0) {
-            textoResposta = respostaIa.data.RelatedTopics[0].Text;
-        }
-
-        if (!textoResposta) {
-            textoResposta = `Com base na minha base de conhecimento para "${pergunta}", recomendo pesquisar fontes especializadas ou detalhar mais a tua questão para que eu te possa orientar melhor!`;
-        }
+        let textoResposta = respostaIa.data.candidates[0].content.parts[0].text;
 
         bot.sendMessage(chatId, `💡 *Resposta da IA:*\n\n${textoResposta}`, { parse_mode: 'Markdown' });
     } catch (e) {
+        // Alternativa de fallback caso queiras manter sem chave (usando uma API pública de chat livre)
+        try {
+            const respostaAlternativa = await axios.get(`https://api.popcat.xyz/chatbot?msg=${encodeURIComponent(pergunta)}`);
+            if (respostaAlternativa.data && respostaAlternativa.data.response) {
+                return bot.sendMessage(chatId, `💡 *Resposta da IA:*\n\n${respostaAlternativa.data.response}`, { parse_mode: 'Markdown' });
+            }
+        } catch (errAlt) {}
+
         bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a IA. Tenta novamente mais tarde.');
     }
 });
-
 // Gestão de Botões (Callback Query com correção definitiva para evitar repetições)
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
