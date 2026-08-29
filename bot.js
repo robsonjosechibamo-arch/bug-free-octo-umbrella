@@ -32,29 +32,35 @@ server.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
 
-// Carregar as perguntas do ficheiro gerado automaticamente
+// Carregar as perguntas de forma segura (evita crash se o ficheiro faltar)
 let bancoDeJogos = [];
 try {
     const dadosArquivo = fs.readFileSync('perguntas.json', 'utf8');
     bancoDeJogos = JSON.parse(dadosArquivo);
     console.log(`✅ Carregadas ${bancoDeJogos.length} perguntas com sucesso!`);
 } catch (erro) {
-    console.log('⚠️ Ficheiro perguntas.json não encontrado. Usando pergunta de segurança.');
+    console.log('⚠️ Ficheiro perguntas.json não encontrado. A usar perguntas de segurança.');
     bancoDeJogos = [
         {
             id: 'seg_1',
             pergunta: 'Quanto é 2 + 2?',
             opcoes: [{ texto: '4', valor: 'certo' }, { texto: '5', valor: 'errado' }],
             respostaCerta: 'certo'
+        },
+        {
+            id: 'seg_2',
+            pergunta: 'Qual é a capital de Portugal?',
+            opcoes: [{ texto: 'Lisboa', valor: 'certo' }, { texto: 'Porto', valor: 'errado' }],
+            respostaCerta: 'certo'
         }
     ];
 }
 
-const pontuacoes = {}; // { chatId: pontos }
-const ultimosJogos = {}; // { chatId: [id_do_jogo_anterior] }
-const jogoAtualPorChat = {}; // { chatId: { respostaCerta } }
+const pontuacoes = {}; 
+const ultimosJogos = {}; 
+const jogoAtualPorChat = {}; 
 
-// Comando /start atualizado com todas as opções
+// Comando /start
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
@@ -81,9 +87,7 @@ bot.onText(/\/start/, (msg) => {
     );
 });
 
-// ==========================================
-// COMANDO /CATALOGO (MENU DE CATEGORIAS)
-// ==========================================
+// Comando /catalogo
 bot.onText(/\/catalogo|categorias/, (msg) => {
     const chatId = msg.chat.id;
 
@@ -104,21 +108,19 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
     });
 });
 
-// ==========================================
-// SISTEMA DE PESQUISA AUTOMÁTICA (FILMES, SÉRIES, DORAMAS)
-// ==========================================
+// Pesquisa de Filmes e Séries
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
 
-    bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"* na base de dados mundial de filmes e doramas...`, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"* na base de dados mundial...`, { parse_mode: 'Markdown' });
 
     try {
         const resposta = await axios.get(`https://api.themoviedb.org/3/search/multi?api_key=3d4516a7f454743260dd242e23d532f6&query=${encodeURIComponent(termo)}&language=pt-PT`);
         const resultados = resposta.data.results;
 
         if (!resultados || resultados.length === 0) {
-            return bot.sendMessage(chatId, '❌ Nenhum filme, série ou dorama encontrado com esse nome.');
+            return bot.sendMessage(chatId, '❌ Nenhum resultado encontrado com esse nome.');
         }
 
         const item = resultados[0];
@@ -137,13 +139,11 @@ bot.onText(/\/filme (.+)/, async (msg, match) => {
             bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
         }
     } catch (e) {
-        bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados de filmes.');
+        bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados.');
     }
 });
 
-// ==========================================
-// SISTEMA DE PESQUISA AUTOMÁTICA DE ANIMES
-// ==========================================
+// Pesquisa de Animes
 bot.onText(/\/anime (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
@@ -179,9 +179,7 @@ bot.onText(/\/anime (.+)/, async (msg, match) => {
     }
 });
 
-// ==========================================
-// SISTEMA DE PESQUISA AUTOMÁTICA DE MANGÁS
-// ==========================================
+// Pesquisa de Mangás
 bot.onText(/\/manga (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
@@ -218,9 +216,7 @@ bot.onText(/\/manga (.+)/, async (msg, match) => {
     }
 });
 
-// ==========================================
-// PROCESSAMENTO DOS BOTÕES E JOGOS
-// ==========================================
+// Processamento de Botões e Jogos
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
@@ -247,7 +243,7 @@ bot.on('callback_query', async (query) => {
         return bot.sendMessage(chatId, '📂 *Escolhe uma categoria abaixo:*', { parse_mode: 'Markdown', ...tecladoCategorias });
     }
 
-        // Processar cliques nas categorias do catálogo
+    // Catálogo Categorias
     if (acao.startsWith('cat_')) {
         const tipoCat = acao.replace('cat_', '');
         bot.answerCallbackQuery(query.id, { text: 'A carregar lista...' });
@@ -284,53 +280,6 @@ bot.on('callback_query', async (query) => {
             }
 
             if (tipoCat === 'manga_pop' || tipoCat === 'mangá_pop') {
-                const res = await axios.get(`https://api.jikan.moe/v4/top/manga?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
-                const itens = res.data.data;
-                let texto = '📖 *Mangás Populares:*\n\n';
-                itens.forEach((m, i) => {
-                    texto += `${i + 1}. *${m.title}* (⭐ ${m.score})\n👉 Usa: \`/manga ${m.title}\`\n\n`;
-                });
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-            }
-
-        } catch (e) {
-            console.error("Erro no catálogo:", e.message);
-            bot.sendMessage(chatId, '⚠️ Erro ao carregar a lista de categorias. Tenta novamente.');
-        }
-    }
-
-        try {
-            if (tipoCat === 'filmes_pop') {
-                const res = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
-                const itens = res.data.results.slice(0, 5);
-                let texto = '🔥 *Filmes Populares no Momento:*\n\n';
-                itens.forEach((f, i) => {
-                    texto += `${i + 1}. *${f.title}* (⭐ ${f.vote_average})\n👉 Usa: \`/filme ${f.title}\`\n\n`;
-                });
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-            }
-
-            if (tipoCat === 'series_pop') {
-                const res = await axios.get(`https://api.themoviedb.org/3/tv/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
-                const itens = res.data.results.slice(0, 5);
-                let texto = '📺 *Séries e Doramas em Alta:*\n\n';
-                itens.forEach((s, i) => {
-                    texto += `${i + 1}. *${s.name}* (⭐ ${s.vote_average})\n👉 Usa: \`/filme ${s.name}\`\n\n`;
-                });
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-            }
-
-            if (tipoCat === 'animes_pop') {
-                const res = await axios.get(`https://api.jikan.moe/v4/top/anime?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
-                const itens = res.data.data;
-                let texto = '⛩️ *Animes Mais Vistos:*\n\n';
-                itens.forEach((a, i) => {
-                    texto += `${i + 1}. *${a.title}* (⭐ ${a.score})\n👉 Usa: \`/anime ${a.title}\`\n\n`;
-                });
-                return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-            }
-
-            if (tipoCat === 'mangá_pop') {
                 const res = await axios.get(`https://api.jikan.moe/v4/top/manga?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
                 const itens = res.data.data;
                 let texto = '📖 *Mangás Populares:*\n\n';
