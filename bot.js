@@ -86,7 +86,6 @@ bot.onText(/\/start/, (msg) => {
         { parse_mode: 'Markdown', ...teclado }
     );
 });
-
 // Comando /catalogo
 bot.onText(/\/catalogo|categorias/, (msg) => {
     const chatId = msg.chat.id;
@@ -97,7 +96,7 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
                 [{ text: '🔥 Filmes Populares', callback_data: 'cat_filmes_pop' }],
                 [{ text: '📺 Séries e Doramas em Alta', callback_data: 'cat_series_pop' }],
                 [{ text: '⛩️ Animes Mais Vistos', callback_data: 'cat_animes_pop' }],
-                [{ text: '📖 Mangás Populares', callback_data: 'cat_mangá_pop' }]
+                [{ text: '📖 Mangás Populares', callback_data: 'cat_manga_pop' }]
             ]
         }
     };
@@ -107,7 +106,6 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
         ...tecladoCategorias
     });
 });
-
 // Pesquisa de Filmes e Séries
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
