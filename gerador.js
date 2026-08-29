@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const totalPerguntas = 10000;
+const totalPerguntas = 400;
 const banco = [];
 
 console.log(`⏳ A gerar ${totalPerguntas} perguntas automaticamente...`);
@@ -23,4 +23,4 @@ for (let i = 1; i <= totalPerguntas; i++) {
 }
 
 fs.writeFileSync('perguntas.json', JSON.stringify(banco, null, 2));
-console.log('✅ Ficheiro perguntas.json gerado com sucesso!');
+console.log('✅ Ficheiro perguntas.json gerado com sucesso com 400 perguntas!');
