@@ -111,42 +111,29 @@ bot.onText(/\/tempo (.+)/, async (msg, match) => {
 
     try {
         const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt`);
-        if (!geoRes.data.results || geoRes.data.results.length === 0) {
-            return bot.sendMessage(chatId, '❌ Cidade não encontrada.');
+        
+        if (!geoRes.data || !geoRes.data.results || geoRes.data.results.length === 0) {
+            return bot.sendMessage(chatId, '❌ Cidade não encontrada. Tenta escrever o nome de outra forma.');
         }
 
         const loc = geoRes.data.results[0];
         const weatherRes = await axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current_weather=true`);
+        
+        if (!weatherRes.data || !weatherRes.data.current_weather) {
+            return bot.sendMessage(chatId, '❌ Não foi possível obter os dados meteorológicos para esta localização.');
+        }
+
         const currentWeather = weatherRes.data.current_weather;
 
-        const texto = `🌤️ *Previsão do Tempo para ${loc.name} (${loc.country || ''})*\n\n` +
+        const texto = `🌤️ *Previsão do Tempo para ${loc.name} (${loc.country || 'N/D'})*\n\n` +
                       `🌡️ *Temperatura:* ${currentWeather.temperature}°C\n` +
                       `💨 *Vento:* ${currentWeather.windspeed} km/h`;
 
         bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
     } catch (e) {
-        bot.sendMessage(chatId, '⚠️ Erro ao consultar a previsão do tempo.');
+        bot.sendMessage(chatId, '⚠️ Erro ao consultar a previsão do tempo. Tenta novamente mais tarde.');
     }
 });
-
-bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const acao = query.data;
-
-    if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
-    if (!historicoPerguntasPorChat[chatId]) historicoPerguntasPorChat[chatId] = [];
-
-    if (acao === 'ver_pontos') {  
-        try { await bot.answerCallbackQuery(query.id); } catch (e) {}  
-        return bot.sendMessage(chatId, `🏆 Tens atualmente *${pontuacoes[chatId]}* pontos!`, { parse_mode: 'Markdown' });  
-    }  
-
-    if (acao === 'proximo_jogo') {  
-        if (!bancoDeJogos || bancoDeJogos.length === 0) {
-            try { await bot.answerCallbackQuery(query.id, { text: 'Sem perguntas disponíveis!' }); } catch (e) {}
-            return;
-        }
-
         // Reinicia o ciclo se já tiver respondido a todas as perguntas do banco
         if (historicoPerguntasPorChat[chatId].length >= bancoDeJogos.length) {
             historicoPerguntasPorChat[chatId] = [];
