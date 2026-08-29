@@ -50,11 +50,20 @@ try {
 const pontuacoes = {}; 
 const jogoAtualPorChat = {}; 
 
-// Base local de Mangás e Animes (Garantido a 100% sem erros)
+// Base local de Mangás e Animes (Mantida intacta)
 const baseMangas = {
     'one piece': { titulo: 'One Piece', nota: '9.2/10', volumes: '108+', sinopse: 'A jornada de Monkey D. Luffy para se tornar o Rei dos Piratas.' },
     'jujutsu': { titulo: 'Jujutsu Kaisen', nota: '8.8/10', volumes: '26', sinopse: 'Yuji Itadori engole um dedo amaldiçoado e entra para o mundo dos feiticeiros.' },
     'naruto': { titulo: 'Naruto', nota: '8.5/10', volumes: '72', sinopse: 'Um jovem ninja que busca reconhecimento e o sonho de se tornar Hokage.' }
+};
+
+// ==========================================
+// NOVA BASE DE FICHEIROS (Para não alterar a antiga)
+// Podes colocar aqui links diretos de download ou caminhos de ficheiros
+// ==========================================
+const baseFicheiros = {
+    'one piece': { titulo: 'One Piece - Capítulo/Pack', url: 'https://exemplo.com/ficheiro_one_piece.pdf' },
+    'jujutsu': { titulo: 'Jujutsu Kaisen - Mangá PDF', url: 'https://exemplo.com/ficheiro_jujutsu.pdf' }
 };
 
 bot.onText(/\/start/, (msg) => {
@@ -86,7 +95,7 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
     });
 });
 
-// Pesquisa de Filmes e Séries via API (TMDB geralmente funciona bem)
+// Pesquisa de Filmes e Séries (Mantida intacta)
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
@@ -115,7 +124,7 @@ bot.onText(/\/filme (.+)/, async (msg, match) => {
     }
 });
 
-// Pesquisa de Mangás (Usa base interna super rápida e sem falhas)
+// Pesquisa de Mangás (Mantida intacta - apenas texto/sinopse)
 bot.onText(/\/manga (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1].toLowerCase();
@@ -156,6 +165,36 @@ bot.onText(/\/anime (.+)/, (msg, match) => {
     return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
 });
 
+// ==========================================
+// NOVO COMANDO: /baixar [nome] (Envia o ficheiro real)
+// ==========================================
+bot.onText(/\/baixar (.+)/, (msg, match) => {
+    const chatId = msg.chat.id;
+    const termo = match[1].toLowerCase();
+
+    let encontrado = null;
+    for (let chave in baseFicheiros) {
+        if (termo.includes(chave)) {
+            encontrado = baseFicheiros[chave];
+            break;
+        }
+    }
+
+    if (!encontrado) {
+        return bot.sendMessage(chatId, `❌ Ficheiro para "${match[1]}" não encontrado.\nUsa: \`/baixar One Piece\` ou \`/baixar Jujutsu\``, { parse_mode: 'Markdown' });
+    }
+
+    bot.sendMessage(chatId, `⏳ A enviar o ficheiro de *${encontrado.titulo}*...`, { parse_mode: 'Markdown' });
+
+    // Envia o documento utilizando o URL ou caminho do ficheiro
+    return bot.sendDocument(chatId, encontrado.url, {
+        caption: `📂 *${encontrado.titulo}*\nAqui tens o teu ficheiro!`,
+        parse_mode: 'Markdown'
+    }).catch(err => {
+        bot.sendMessage(chatId, '⚠️ Erro ao enviar o ficheiro. Verifique se o link de download é direto e válido.');
+    });
+});
+
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
@@ -186,7 +225,7 @@ bot.on('callback_query', async (query) => {
 
         let textoAjuda = '';
         if (tipo === 'filmes') textoAjuda = '🔥 *Como pesquisar Filmes/Séries:*\nUsa: `/filme [nome]`\nExemplo: `/filme Avatar`';
-        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás/Animes:*\nUsa: `/manga [nome]` ou `/anime [nome]`\nExemplo: `/manga One Piece`';
+        if (tipo === 'mangas') textoAjuda = '📖 *Como pesquisar Mangás/Animes:*\nUsa: `/manga [nome]` ou `/anime [nome]`\nExemplo: `/manga One Piece`\n\n📥 *Para descarregar ficheiros:*\nUsa: `/baixar [nome]`';
 
         return bot.sendMessage(chatId, textoAjuda, { parse_mode: 'Markdown' });
     }
