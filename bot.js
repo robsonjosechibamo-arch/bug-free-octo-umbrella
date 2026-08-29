@@ -32,25 +32,16 @@ server.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
 
-// Carregar as perguntas de forma segura (evita crash se o ficheiro faltar)
 let bancoDeJogos = [];
 try {
     const dadosArquivo = fs.readFileSync('perguntas.json', 'utf8');
     bancoDeJogos = JSON.parse(dadosArquivo);
-    console.log(`✅ Carregadas ${bancoDeJogos.length} perguntas com sucesso!`);
 } catch (erro) {
-    console.log('⚠️ Ficheiro perguntas.json não encontrado. A usar perguntas de segurança.');
     bancoDeJogos = [
         {
             id: 'seg_1',
             pergunta: 'Quanto é 2 + 2?',
             opcoes: [{ texto: '4', valor: 'certo' }, { texto: '5', valor: 'errado' }],
-            respostaCerta: 'certo'
-        },
-        {
-            id: 'seg_2',
-            pergunta: 'Qual é a capital de Portugal?',
-            opcoes: [{ texto: 'Lisboa', valor: 'certo' }, { texto: 'Porto', valor: 'errado' }],
             respostaCerta: 'certo'
         }
     ];
@@ -60,7 +51,6 @@ const pontuacoes = {};
 const ultimosJogos = {}; 
 const jogoAtualPorChat = {}; 
 
-// Comando /start
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
@@ -86,11 +76,10 @@ bot.onText(/\/start/, (msg) => {
         { parse_mode: 'Markdown', ...teclado }
     );
 });
-// Comando /catalogo
-bot.onText(/\/catalogo|categorias/, (msg) => {
-    const chatId = msg.chat.id;
 
-    const tecladoCategorias = {
+bot.onText(/\/catalogo|categorias/, (msg) => {
+    bot.sendMessage(msg.chat.id, '📂 *Escolhe uma categoria abaixo:*', {
+        parse_mode: 'Markdown',
         reply_markup: {
             inline_keyboard: [
                 [{ text: '🔥 Filmes Populares', callback_data: 'cat_filmes_pop' }],
@@ -99,26 +88,21 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
                 [{ text: '📖 Mangás Populares', callback_data: 'cat_manga_pop' }]
             ]
         }
-    };
-
-    bot.sendMessage(chatId, '📂 *Escolhe uma categoria abaixo para ver os títulos em destaque:*', {
-        parse_mode: 'Markdown',
-        ...tecladoCategorias
     });
 });
-// Pesquisa de Filmes e Séries
+
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
 
-    bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"* na base de dados mundial...`, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"*...`, { parse_mode: 'Markdown' });
 
     try {
         const resposta = await axios.get(`https://api.themoviedb.org/3/search/multi?api_key=3d4516a7f454743260dd242e23d532f6&query=${encodeURIComponent(termo)}&language=pt-PT`);
         const resultados = resposta.data.results;
 
         if (!resultados || resultados.length === 0) {
-            return bot.sendMessage(chatId, '❌ Nenhum resultado encontrado com esse nome.');
+            return bot.sendMessage(chatId, '❌ Nenhum resultado encontrado.');
         }
 
         const item = resultados[0];
@@ -141,12 +125,11 @@ bot.onText(/\/filme (.+)/, async (msg, match) => {
     }
 });
 
-// Pesquisa de Animes
 bot.onText(/\/anime (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
 
-    bot.sendMessage(chatId, `⛩️ A procurar por *"${termo}"* na base de dados de animes...`, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, `⛩️ A procurar pelo anime *"${termo}"*...`, { parse_mode: 'Markdown' });
 
     try {
         const resposta = await axios.get(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(termo)}&limit=1`, {
@@ -155,34 +138,27 @@ bot.onText(/\/anime (.+)/, async (msg, match) => {
         const resultados = resposta.data.data;
 
         if (!resultados || resultados.length === 0) {
-            return bot.sendMessage(chatId, '❌ Nenhum anime encontrado com esse nome.');
+            return bot.sendMessage(chatId, '❌ Nenhum anime encontrado.');
         }
 
         const anime = resultados[0];
-        const titulo = anime.title;
-        const episodios = anime.episodes || 'Desconhecido';
-        const nota = anime.score || 'N/A';
-        const sinopse = anime.synopsis || 'Sinopse indisponível.';
-        const imagem = anime.images?.jpg?.large_image_url || null;
+        const texto = `⛩️ *Anime: ${anime.title}*\n⭐ *Nota:* ${anime.score || 'N/A'}/10\n📺 *Episódios:* ${anime.episodes || 'Desconhecido'}\n\n📖 *Sinopse:*\n${anime.synopsis || 'Indisponível'}`;
 
-        const texto = `⛩️ *Anime: ${titulo}*\n⭐ *Nota:* ${nota}/10\n📺 *Episódios:* ${episódios}\n\n📖 *Sinopse:*\n${sinopse}`;
-
-        if (imagem) {
-            bot.sendPhoto(chatId, imagem, { caption: texto, parse_mode: 'Markdown' });
+        if (anime.images?.jpg?.large_image_url) {
+            bot.sendPhoto(chatId, anime.images.jpg.large_image_url, { caption: texto, parse_mode: 'Markdown' });
         } else {
             bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
         }
     } catch (e) {
-        bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados de animes.');
+        bot.sendMessage(chatId, '⚠️ Erro ao consultar a base de animes.');
     }
 });
 
-// Pesquisa de Mangás
 bot.onText(/\/manga (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
 
-    bot.sendMessage(chatId, `📖 A procurar pelo mangá *"${termo}"* na base de dados...`, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, `📖 A procurar pelo mangá *"${termo}"*...`, { parse_mode: 'Markdown' });
 
     try {
         const resposta = await axios.get(`https://api.jikan.moe/v4/manga?q=${encodeURIComponent(termo)}&limit=1`, {
@@ -191,30 +167,22 @@ bot.onText(/\/manga (.+)/, async (msg, match) => {
         const resultados = resposta.data.data;
 
         if (!resultados || resultados.length === 0) {
-            return bot.sendMessage(chatId, '❌ Nenhum mangá encontrado com esse nome.');
+            return bot.sendMessage(chatId, '❌ Nenhum mangá encontrado.');
         }
 
         const manga = resultados[0];
-        const titulo = manga.title;
-        const volumes = manga.volumes || 'Desconhecido';
-        const capitulos = manga.chapters || 'Desconhecido';
-        const nota = manga.score || 'N/A';
-        const sinopse = manga.synopsis || 'Sinopse indisponível.';
-        const imagem = manga.images?.jpg?.large_image_url || null;
+        const texto = `📖 *Mangá: ${manga.title}*\n⭐ *Nota:* ${manga.score || 'N/A'}/10\n📚 *Volumes:* ${manga.volumes || 'Desconhecido'}\n\n📝 *Sinopse:*\n${manga.synopsis || 'Indisponível'}`;
 
-        const texto = `📖 *Mangá: ${titulo}*\n⭐ *Nota:* ${nota}/10\n📚 *Volumes:* ${volumes} | *Capítulos:* ${capitulos}\n\n📝 *Sinopse:*\n${sinopse}`;
-
-        if (imagem) {
-            bot.sendPhoto(chatId, imagem, { caption: texto, parse_mode: 'Markdown' });
+        if (manga.images?.jpg?.large_image_url) {
+            bot.sendPhoto(chatId, manga.images.jpg.large_image_url, { caption: texto, parse_mode: 'Markdown' });
         } else {
             bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
         }
     } catch (e) {
-        bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados de mangás.');
+        bot.sendMessage(chatId, '⚠️ Erro ao consultar a base de mangás.');
     }
 });
 
-// Processamento de Botões e Jogos
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
@@ -228,65 +196,61 @@ bot.on('callback_query', async (query) => {
 
     if (acao === 'menu_catalogo') {
         bot.answerCallbackQuery(query.id);
-        const tecladoCategorias = {
+        return bot.sendMessage(chatId, '📂 *Escolhe uma categoria abaixo:*', {
+            parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '🔥 Filmes Populares', callback_data: 'cat_filmes_pop' }],
                     [{ text: '📺 Séries e Doramas em Alta', callback_data: 'cat_series_pop' }],
                     [{ text: '⛩️ Animes Mais Vistos', callback_data: 'cat_animes_pop' }],
-                    [{ text: '📖 Mangás Populares', callback_data: 'cat_mangá_pop' }]
+                    [{ text: '📖 Mangás Populares', callback_data: 'cat_manga_pop' }]
                 ]
             }
-        };
-        return bot.sendMessage(chatId, '📂 *Escolhe uma categoria abaixo:*', { parse_mode: 'Markdown', ...tecladoCategorias });
+        });
     }
 
-    // Catálogo Categorias
     if (acao.startsWith('cat_')) {
         const tipoCat = acao.replace('cat_', '');
-        bot.answerCallbackQuery(query.id, { text: 'A carregar lista...' });
+        try {
+            bot.answerCallbackQuery(query.id, { text: 'A carregar lista...' });
+        } catch (e) {}
 
         try {
             if (tipoCat === 'filmes_pop') {
                 const res = await axios.get(`https://api.themoviedb.org/3/movie/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
-                const itens = res.data.results.slice(0, 5);
-                let texto = '🔥 *Filmes Populares no Momento:*\n\n';
-                itens.forEach((f, i) => {
-                    texto += `${i + 1}. *${f.title}* (⭐ ${f.vote_average})\n👉 Usa: \`/filme ${f.title}\`\n\n`;
+                let texto = '🔥 *Filmes Populares:*\n\n';
+                res.data.results.slice(0, 5).forEach((f, i) => {
+                    texto += `${i + 1}. *${f.title}* (⭐ ${f.vote_average})\n👉 \`/filme ${f.title}\`\n\n`;
                 });
                 return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
             }
 
             if (tipoCat === 'series_pop') {
                 const res = await axios.get(`https://api.themoviedb.org/3/tv/popular?api_key=3d4516a7f454743260dd242e23d532f6&language=pt-PT&page=1`);
-                const itens = res.data.results.slice(0, 5);
                 let texto = '📺 *Séries e Doramas em Alta:*\n\n';
-                itens.forEach((s, i) => {
-                    texto += `${i + 1}. *${s.name}* (⭐ ${s.vote_average})\n👉 Usa: \`/filme ${s.name}\`\n\n`;
+                res.data.results.slice(0, 5).forEach((s, i) => {
+                    texto += `${i + 1}. *${s.name}* (⭐ ${s.vote_average})\n👉 \`/filme ${s.name}\`\n\n`;
                 });
                 return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
             }
 
             if (tipoCat === 'animes_pop') {
                 const res = await axios.get(`https://api.jikan.moe/v4/top/anime?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
-                const itens = res.data.data;
                 let texto = '⛩️ *Animes Mais Vistos:*\n\n';
-                itens.forEach((a, i) => {
-                    texto += `${i + 1}. *${a.title}* (⭐ ${a.score})\n👉 Usa: \`/anime ${a.title}\`\n\n`;
+                res.data.data.forEach((a, i) => {
+                    texto += `${i + 1}. *${a.title}* (⭐ ${a.score})\n👉 \`/anime ${a.title}\`\n\n`;
                 });
                 return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
             }
 
-            if (tipoCat === 'manga_pop' || tipoCat === 'mangá_pop') {
-                const res = await axios.get(`https://api.jikan.moe/v4/top/manga?limit=5`, { headers: { 'User-Agent': 'BotTelegram/1.0' } });
-                const itens = res.data.data;
+            if (tipoCat === 'manga_pop') {
+                const res = await axios.get(`https://api.jikan.moe/v4/top/manga?limit=5`, { headers: { 'User-Agent': 'User-Agent: BotTelegram/1.0' } });
                 let texto = '📖 *Mangás Populares:*\n\n';
-                itens.forEach((m, i) => {
-                    texto += `${i + 1}. *${m.title}* (⭐ ${m.score})\n👉 Usa: \`/manga ${m.title}\`\n\n`;
+                res.data.data.forEach((m, i) => {
+                    texto += `${i + 1}. *${m.title}* (⭐ ${m.score})\n👉 \`/manga ${m.title}\`\n\n`;
                 });
                 return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
             }
-
         } catch (e) {
             bot.sendMessage(chatId, '⚠️ Erro ao carregar a lista de categorias.');
         }
@@ -295,23 +259,14 @@ bot.on('callback_query', async (query) => {
     if (acao === 'proximo_jogo') {
         if (!ultimosJogos[chatId]) ultimosJogos[chatId] = [];
 
-        const jogosDisponiveis = bancoDeJogos.filter(j => !ultimosJogos[chatId].includes(j.id));
-        const pool = jogosDisponiveis.length > 0 ? jogosDisponiveis : bancoDeJogos;
-        
+        const pool = bancoDeJogos;
         const jogoSorteado = pool[Math.floor(Math.random() * pool.length)];
-
-        ultimosJogos[chatId].push(jogoSorteado.id);
-        if (ultimosJogos[chatId].length > 5) {
-            ultimosJogos[chatId].shift();
-        }
 
         jogoAtualPorChat[chatId] = { respostaCerta: jogoSorteado.respostaCerta };
 
         const botoesOpcoes = jogoSorteado.opcoes.map(opcao => {
             return [{ text: opcao.texto, callback_data: `resp_${opcao.valor}` }];
         });
-
-        botoesOpcoes.push([{ text: '🏆 Ver Pontuação', callback_data: 'ver_pontos' }]);
 
         bot.answerCallbackQuery(query.id);
         return bot.sendMessage(chatId, `${jogoSorteado.pergunta}\n\n👇 *Escolha uma opção:*`, {
@@ -325,28 +280,23 @@ bot.on('callback_query', async (query) => {
         const dadosJogo = jogoAtualPorChat[chatId];
 
         if (!dadosJogo) {
-            bot.answerCallbackQuery(query.id, { text: '⚠️ Desafio expirado. Clica em novo jogo!' });
-            return;
+            return bot.answerCallbackQuery(query.id, { text: '⚠️ Desafio expirado!' });
         }
-
-        const tecladoProximo = {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '➡️ Próximo Desafio', callback_data: 'proximo_jogo' }],
-                    [{ text: '🏆 Ver Pontuação', callback_data: 'ver_pontos' }]
-                ]
-            }
-        };
 
         if (escolhaUsuario === dadosJogo.respostaCerta) {
             pontuacoes[chatId] += 10;
             delete jogoAtualPorChat[chatId];
 
             bot.answerCallbackQuery(query.id, { text: '🎉 Correto! +10 pontos' });
-            bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste!**\n+10 pontos. Total: *${pontuacoes[chatId]}*`, { parse_mode: 'Markdown', ...tecladoProximo });
+            bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste!**\nTotal: *${pontuacoes[chatId]}* pontos`, {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [[{ text: '➡️ Próximo Desafio', callback_data: 'proximo_jogo' }]]
+                }
+            });
         } else {
             bot.answerCallbackQuery(query.id, { text: '❌ Errado!' });
-            bot.sendMessage(chatId, `❌ **Resposta incorreta!** Tenta outro desafio.`, {
+            bot.sendMessage(chatId, `❌ **Resposta incorreta!**`, {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [[{ text: '🔄 Tentar Outro', callback_data: 'proximo_jogo' }]]
