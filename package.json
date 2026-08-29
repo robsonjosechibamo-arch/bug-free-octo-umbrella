@@ -1,12 +1,14 @@
 {
   "name": "bot-telegram-jogos",
   "version": "1.0.0",
-  "description": "Bot de jogos para o Telegram",
+  "description": "Bot de jogos e entretenimento",
   "main": "bot.js",
   "scripts": {
     "start": "node gerador.js && node bot.js"
   },
   "dependencies": {
-    "node-telegram-bot-api": "^0.61.0"
+    "node-telegram-bot-api": "^0.61.0",
+    "axios": "^1.6.0"
   }
 }
+ 
