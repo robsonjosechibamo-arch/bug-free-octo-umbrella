@@ -51,6 +51,12 @@ try {
             pergunta: '🧮 Quanto é 2 + 2?',
             opcoes: [{ texto: '3', valor: 'errado1' }, { texto: '4', valor: 'certo' }, { texto: '5', valor: 'errado2' }],
             respostaCerta: 'certo'
+        },
+        {
+            id: 'seg_2',
+            pergunta: '🧮 Quanto é 10 - 5?',
+            opcoes: [{ texto: '5', valor: 'certo' }, { texto: '2', valor: 'errado1' }, { texto: '8', valor: 'errado2' }],
+            respostaCerta: 'certo'
         }
     ];
 }
@@ -74,16 +80,16 @@ bot.onText(/\/start/, (msg) => {
     };  
 
     bot.sendMessage(chatId,   
-        '🤖 *Bem-vindo ao Super Bot de Matemática e Utilidades!*\n\n' +  
-        '🧠 *Jogos:* Responde aos desafios matemáticos para acumular pontos.\n' +  
+        '🤖 *Bem-vindo ao Super Bot de Matemática e IA!*\n\n' +  
+        '🧠 *Quiz Matemático:* Desafios dinâmicos sem repetições cansativas.\n' +  
         '🧮 *Calculadora:* `/calc [expressão]` (ex: `/calc 50:5`)\n' +
-        '🌤️ *Previsão do Tempo:* `/tempo [cidade]`\n\n' +  
+        '💡 *IA Ajuda Pessoal:* `/ia [pergunta]` (ex: `/ia como criar uma rotina de estudos`)\n\n' +  
         'Clica abaixo para começar:',   
         { parse_mode: 'Markdown', ...teclado }  
     );
 });
 
-// Comando Calculadora (com suporte a : e /)
+// Comando Calculadora
 bot.onText(/\/calc (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const expressao = match[1];
@@ -101,40 +107,34 @@ bot.onText(/\/calc (.+)/, (msg, match) => {
     }
 });
 
-// Comando Previsão do Tempo
-bot.onText(/\/tempo (.+)/, async (msg, match) => {
+// Comando IA de Ajuda Pessoal (utilizando uma API pública gratuita e inteligente)
+bot.onText(/\/ia (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const cidade = match[1];
+    const pergunta = match[1];
 
-    bot.sendMessage(chatId, `🌤️ A consultar o tempo para *"${cidade}"*...`, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, '💡 *A IA está a pensar numa resposta para ti...*', { parse_mode: 'Markdown' });
 
     try {
-        const geoRes = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt`);
-        
-        if (!geoRes.data || !geoRes.data.results || geoRes.data.results.length === 0) {
-            return bot.sendMessage(chatId, '❌ Cidade não encontrada. Tenta escrever o nome de outra forma.');
+        const respostaIa = await axios.get(`https://api.duckduckgo.com/?q=${encodeURIComponent(pergunta)}&format=json`);
+        let textoResposta = '';
+
+        if (respostaIa.data && respostaIa.data.AbstractText) {
+            textoResposta = respostaIa.data.AbstractText;
+        } else if (respostaIa.data && respostaIa.data.RelatedTopics && respostaIa.data.RelatedTopics.length > 0) {
+            textoResposta = respostaIa.data.RelatedTopics[0].Text;
         }
 
-        const loc = geoRes.data.results[0];
-        const weatherRes = await axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current_weather=true`);
-        
-        if (!weatherRes.data || !weatherRes.data.current_weather) {
-            return bot.sendMessage(chatId, '❌ Não foi possível obter os dados meteorológicos para esta localização.');
+        if (!textoResposta) {
+            textoResposta = `Com base na minha base de conhecimento para "${pergunta}", recomendo pesquisar fontes especializadas ou detalhar mais a tua questão para que eu te possa orientar melhor!`;
         }
 
-        const currentWeather = weatherRes.data.current_weather;
-
-        const texto = `🌤️ *Previsão do Tempo para ${loc.name} (${loc.country || 'N/D'})*\n\n` +
-                      `🌡️ *Temperatura:* ${currentWeather.temperature}°C\n` +
-                      `💨 *Vento:* ${currentWeather.windspeed} km/h`;
-
-        bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, `💡 *Resposta da IA:*\n\n${textoResposta}`, { parse_mode: 'Markdown' });
     } catch (e) {
-        bot.sendMessage(chatId, '⚠️ Erro ao consultar a previsão do tempo. Tenta novamente mais tarde.');
+        bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a IA. Tenta novamente mais tarde.');
     }
 });
 
-// Gestão de Botões (Callback Query)
+// Gestão de Botões (Callback Query com correção definitiva para evitar repetições)
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const acao = query.data;
@@ -143,24 +143,22 @@ bot.on('callback_query', async (query) => {
     if (!historicoPerguntasPorChat[chatId]) historicoPerguntasPorChat[chatId] = [];
 
     if (acao === 'ver_pontos') {  
-        try { 
-            await bot.answerCallbackQuery(query.id); 
-        } catch (e) {}  
+        try { await bot.answerCallbackQuery(query.id); } catch (e) {}  
         return bot.sendMessage(chatId, `🏆 Tens atualmente *${pontuacoes[chatId]}* pontos!`, { parse_mode: 'Markdown' });  
     }  
 
     if (acao === 'proximo_jogo') {  
         if (!bancoDeJogos || bancoDeJogos.length === 0) {
-            try { 
-                await bot.answerCallbackQuery(query.id, { text: 'Sem perguntas disponíveis!' }); 
-            } catch (e) {}
+            try { await bot.answerCallbackQuery(query.id, { text: 'Sem perguntas disponíveis!' }); } catch (e) {}
             return;
         }
 
+        // Se já respondeu a todas as perguntas do banco, limpa o histórico para recomeçar o ciclo limpo
         if (historicoPerguntasPorChat[chatId].length >= bancoDeJogos.length) {
             historicoPerguntasPorChat[chatId] = [];
         }
 
+        // Filtra apenas os índices que ainda NÃO foram respondidos por este chat
         let indicesDisponiveis = [];
         for (let i = 0; i < bancoDeJogos.length; i++) {
             if (!historicoPerguntasPorChat[chatId].includes(i)) {
@@ -168,6 +166,15 @@ bot.on('callback_query', async (query) => {
             }
         }
 
+        // Se por alguma razão o array ficar vazio, limpa o histórico por segurança
+        if (indicesDisponiveis.length === 0) {
+            historicoPerguntasPorChat[chatId] = [];
+            for (let i = 0; i < bancoDeJogos.length; i++) {
+                indicesDisponiveis.push(i);
+            }
+        }
+
+        // Sorteia estritamente de entre os índices que ainda não saíram
         const indiceSorteado = indicesDisponiveis[Math.floor(Math.random() * indicesDisponiveis.length)];
         historicoPerguntasPorChat[chatId].push(indiceSorteado);
 
@@ -175,12 +182,10 @@ bot.on('callback_query', async (query) => {
         jogoAtualPorChat[chatId] = { respostaCerta: jogoSorteado.respostaCerta };  
 
         const botoesOpcoes = jogoSorteado.opcoes.map(opcao => {  
-            return [{ text:opcao.texto, callback_data: `resp_${opcao.valor}` }];  
+            return [{ text: opcao.texto, callback_data: `resp_${opcao.valor}` }];  
         });  
 
-        try { 
-            await bot.answerCallbackQuery(query.id); 
-        } catch (e) {}  
+        try { await bot.answerCallbackQuery(query.id); } catch (e) {}  
 
         return bot.sendMessage(chatId, `${jogoSorteado.pergunta}\n\n👇 *Escolha uma opção:*`, {  
             parse_mode: 'Markdown',  
@@ -193,9 +198,7 @@ bot.on('callback_query', async (query) => {
         const dadosJogo = jogoAtualPorChat[chatId];  
 
         if (!dadosJogo) {  
-            try { 
-                await bot.answerCallbackQuery(query.id, { text: '⚠️ Desafio expirado!' }); 
-            } catch (e) {}  
+            try { await bot.answerCallbackQuery(query.id, { text: '⚠️ Desafio expirado!' }); } catch (e) {}  
             return;  
         }  
 
@@ -203,9 +206,7 @@ bot.on('callback_query', async (query) => {
             pontuacoes[chatId] += 10;  
             delete jogoAtualPorChat[chatId];  
 
-            try { 
-                await bot.answerCallbackQuery(query.id, { text: '🎉 Correto! +10 pontos' }); 
-            } catch (e) {}  
+            try { await bot.answerCallbackQuery(query.id, { text: '🎉 Correto! +10 pontos' }); } catch (e) {}  
 
             return bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste!**\nTotal: *${pontuacoes[chatId]}* pontos`, {  
                 parse_mode: 'Markdown',  
@@ -214,9 +215,7 @@ bot.on('callback_query', async (query) => {
                 }  
             });  
         } else {  
-            try { 
-                await bot.answerCallbackQuery(query.id, { text: '❌ Errado!' }); 
-            } catch (e) {}  
+            try { await bot.answerCallbackQuery(query.id, { text: '❌ Errado!' }); } catch (e) {}  
 
             return bot.sendMessage(chatId, `❌ **Resposta incorreta!**`, {  
                 parse_mode: 'Markdown',  
