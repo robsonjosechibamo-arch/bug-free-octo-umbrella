@@ -82,23 +82,26 @@ bot.onText(/\/start/, (msg) => {
         { parse_mode: 'Markdown', ...teclado }  
     );
 });
-
 // Comando Calculadora
 bot.onText(/\/calc (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    const expressao = match[1];
+    let expressao = match[1];
 
     try {
-        const resultado = eval(expressao.replace(/[^0-9+\-*/().]/g, ''));
+        // Substitui os dois pontos (:) por sinal de divisão real (/)
+        expressaoFormatada = expressao.replace(/:/g, '/');
+
+        // Permite apenas números, operadores seguros e parênteses
+        const resultado = eval(expressaoFormatada.replace(/[^0-9+\-*/().]/g, ''));
+        
         if (resultado === undefined || isNaN(resultado)) {
-            return bot.sendMessage(chatId, '❌ Expressão inválida. Usa números e operadores simples (ex: `/calc 10 * 5`)', { parse_mode: 'Markdown' });
+            return bot.sendMessage(chatId, '❌ Expressão inválida. Usa números e operadores simples (ex: `/calc 50 / 5` ou `/calc 50:5`)', { parse_mode: 'Markdown' });
         }
         bot.sendMessage(chatId, `🧮 *Resultado:* \`${expressao} = ${resultado}\``, { parse_mode: 'Markdown' });
     } catch (e) {
         bot.sendMessage(chatId, '❌ Erro ao calcular a expressão.');
     }
 });
-
 // Comando Previsão do Tempo
 bot.onText(/\/tempo (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
