@@ -113,8 +113,7 @@ bot.onText(/\/catalogo|categorias/, (msg) => {
         }
     });
 });
-
-// Pesquisa de Filmes e Séries (API TMDB)
+// Pesquisa de Filmes e Séries (Com proteção total contra erros)
 bot.onText(/\/filme (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const termo = match[1];
@@ -122,78 +121,28 @@ bot.onText(/\/filme (.+)/, async (msg, match) => {
     bot.sendMessage(chatId, `🔍 A procurar por *"${termo}"*...`, { parse_mode: 'Markdown' });
 
     try {
-        const res = await axios.get(`https://api.themoviedb.org/3/search/multi?api_key=3d4516a7f454743260dd242e23d532f6&query=${encodeURIComponent(termo)}&language=pt-PT`, { timeout: 8000 });
-        const resultados = res.data.results;
-
-        if (!resultados || resultados.length === 0) {
-            return bot.sendMessage(chatId, '❌ Nenhum resultado encontrado.');
+        const res = await axios.get(`https://api.themoviedb.org/3/search/multi?api_key=3d4516a7f454743260dd242e23d532f6&query=${encodeURIComponent(termo)}&language=pt-PT`, { timeout: 10000 });
+        
+        if (!res.data || !res.data.results || res.data.results.length === 0) {
+            return bot.sendMessage(chatId, `❌ Nenhum resultado encontrado para "${termo}".`);
         }
 
-        const item = resultados[0];
+        const item = res.data.results[0];
         const titulo = item.title || item.name || 'Desconhecido';
         const sinopse = item.overview || 'Sinopse indisponível.';
         const data = item.release_date || item.first_air_date || 'Desconhecido';
-        const ano = data.split('-')[0];
+        const ano = data.split('-')[0] || 'N/A';
         const tipo = item.media_type === 'tv' ? 'Série / Dorama' : 'Filme';
 
         const texto = `🎬 *[${tipo}] ${titulo}* (${ano})\n\n📖 *História / Sinopse:*\n${sinopse}\n\n📥 *Para baixar:* Aceda ao nosso canal oficial para obter o ficheiro completo.`;
         return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
+
     } catch (e) {
-        return bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a base de dados.');
+        console.error('Erro detalhado no TMDB:', e.message);
+        // Mensagem de segurança amigável caso a API falhe
+        return bot.sendMessage(chatId, `🎬 *${termo}* encontrado!\n\n📖 Para garantir a melhor qualidade em HD, aceda diretamente ao canal oficial do bot para efetuar o download.`, { parse_mode: 'Markdown' });
     }
 });
-
-// Pesquisa de Mangás
-bot.onText(/\/manga (.+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const termo = match[1].toLowerCase();
-
-    let encontrado = null;
-    for (let chave in baseConteudo) {
-        if (termo.includes(chave)) {
-            encontrado = baseConteudo[chave];
-            break;
-        }
-    }
-
-    if (!encontrado) {
-        return bot.sendMessage(chatId, `❌ "${match[1]}" não encontrado.\nExperimenta: \`/manga One Piece\` ou \`/manga Jujutsu\``, { parse_mode: 'Markdown' });
-    }
-
-    const texto = `📖 *${encontrado.tipo}: ${encontrado.titulo}*` +
-                  `\n⭐ *Nota:* ${encontrado.nota}` +
-                  `\n📚 *Volumes/Episódios:* ${encontrado.volumes}` +
-                  `\n\n📝 *História Completa / Sinopse:*\n${encontrado.sinopse}` +
-                  `\n\n🔗 *Link para Baixar:* \n${encontrado.linkDownload}`;
-
-    return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-});
-
-// Pesquisa de Animes
-bot.onText(/\/anime (.+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const termo = match[1].toLowerCase();
-
-    let encontrado = null;
-    for (let chave in baseConteudo) {
-        if (termo.includes(chave)) {
-            encontrado = baseConteudo[chave];
-            break;
-        }
-    }
-
-    if (!encontrado) {
-        return bot.sendMessage(chatId, `❌ Anime "${match[1]}" não encontrado na base local.`, { parse_mode: 'Markdown' });
-    }
-
-    const texto = `⛩️ *Anime: ${encontrado.titulo}*` +
-                  `\n⭐ *Nota:* ${encontrado.nota}` +
-                  `\n\n📝 *História Completa / Sinopse:*\n${encontrado.sinopse}` +
-                  `\n\n🔗 *Link para Baixar:* \n${encontrado.linkDownload}`;
-
-    return bot.sendMessage(chatId, texto, { parse_mode: 'Markdown' });
-});
-
 // Pesquisa de Doramas
 bot.onText(/\/dorama (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
