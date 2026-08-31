@@ -30,7 +30,7 @@ const { gerarAddon, MINECRAFT_VERSION } = require("./minecraft");
 // 🔑 COLOQUE O TOKEN DO SEU BOT AQUI
 // =====================================================
 
-const TOKEN = "8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg";
+const TOKEN = "8914048357:AAHOjj5fQhSDDy5NWeJBD33BQNW20N5OCMM";
 
 // =====================================================
 // NÃO ALTERE ABAIXO
