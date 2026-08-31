@@ -21,7 +21,7 @@ const {
     embaralhar
 } = require("./gerador");
 
-
+const { gerarAddon, MINECRAFT_VERSION } = require("./minecraft");
 /* =========================================================
    CONFIGURAÇÃO
 ========================================================= */
@@ -978,60 +978,122 @@ ${texto}`,
 */
 
 bot.onText(
+
+/* =========================================================
+   GERADOR MINECRAFT BEDROCK
+========================================================= */
+
+bot.onText(
     /^\/mc(?:\s+([\s\S]+))?$/,
     async (msg, match) => {
 
+        const chatId = msg.chat.id;
+
         const descricao =
-            match &&
-            match[1]
+            match && match[1]
                 ? match[1].trim()
                 : "";
 
-
         if (!descricao) {
 
-            bot.sendMessage(
-
-                msg.chat.id,
-
+            await bot.sendMessage(
+                chatId,
                 `⛏️ *GERADOR MINECRAFT BEDROCK*
 
-Descreve o addon que queres.
+Escreve o que queres criar.
 
 Exemplo:
 
-/mc Cria um alienígena de fogo chamado Heatblast, vermelho, que voa e lança bolas de fogo.
+/mc cria um dragão vermelho que voa, tem 100 de vida e lança fogo
 
-Também podes pedir:
+🎮 Também podes pedir:
 
-/mc Cria um novo mob chamado Dragão Azul.
+• mobs
+• entidades
+• itens
+• armas
+• blocos
+• receitas
+• addons completos
 
-/mc Cria uma espada de gelo.
-
-/mc Cria um addon com 10 aliens.`,
-
+🎯 Versão-alvo:
+Minecraft Bedrock ${MINECRAFT_VERSION}`,
                 {
-                    parse_mode:
-                        "Markdown"
+                    parse_mode: "Markdown"
                 }
             );
 
             return;
         }
 
+        const mensagem =
+            await bot.sendMessage(
+                chatId,
+                "⛏️ A criar o addon...\n\n" +
+                "🧠 Analisando descrição...\n" +
+                "📦 Preparando Behavior Pack...\n" +
+                "🎨 Preparando Resource Pack..."
+            );
 
-        await bot.sendMessage(
+        try {
 
-            msg.chat.id,
+            const resultado =
+                await gerarAddon(
+                    descricao
+                );
 
-            "⛏️ Entendi a descrição!\n\n" +
-            "🧠 Vou preparar a estrutura do addon Bedrock.\n\n" +
-            `📝 Pedido:\n${descricao}\n\n` +
-            "⚙️ O gerador Minecraft completo será ligado na próxima etapa."
-        );
+            await bot.editMessageText(
+
+                "✅ *ADDON CRIADO!*\n\n" +
+
+                `📦 Nome: ${resultado.nome}\n` +
+
+                `🎮 Minecraft: ${resultado.versao}\n\n` +
+
+                "📤 Enviando o arquivo...",
+
+                {
+                    chat_id: chatId,
+                    message_id:
+                        mensagem.message_id,
+
+                    parse_mode: "Markdown"
+                }
+            );
+
+            await bot.sendDocument(
+
+                chatId,
+
+                resultado.arquivo,
+
+                {
+                    caption:
+                        `⛏️ ${resultado.nome}\n\n` +
+                        `Minecraft Bedrock ${resultado.versao}\n\n` +
+                        "✅ Addon gerado pelo Guarda-Chuva Bot."
+                }
+
+            );
+
+        } catch (erro) {
+
+            console.error(
+                "Erro no gerador Minecraft:",
+                erro
+            );
+
+            await bot.sendMessage(
+
+                chatId,
+
+                "❌ Não foi possível gerar o addon.\n\n" +
+                `Erro: ${erro.message}\n\n` +
+                "Verifica se a plataforma onde o bot está hospedado possui o comando ZIP instalado."
+            );
+        }
     }
 );
-
 
 /* =========================================================
    BOTÕES DO MENU
