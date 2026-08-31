@@ -977,7 +977,6 @@ ${texto}`,
   A versão alvo será configurável.
 */
 
-bot.onText(
 
 /* =========================================================
    GERADOR MINECRAFT BEDROCK
