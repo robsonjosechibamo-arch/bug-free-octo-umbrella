@@ -1,402 +1,1347 @@
-const http = require('http');
-const fs = require('fs');
-const axios = require('axios');
-const TelegramBot = require('node-telegram-bot-api');
+const TelegramBot = require("node-telegram-bot-api");
+const fs = require("fs");
+const path = require("path");
 
-const TOKEN = '8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg';
-const bot = new TelegramBot(TOKEN, { polling: false });
+const {
+    gerarSoma,
+    gerarSubtracao,
+    gerarMultiplicacao,
+    gerarDivisao,
+    gerarPorcentagem,
+    gerarPotencia,
+    gerarEquacao,
+    gerarSequencia,
+    gerarCharada,
+    gerarVerdadeiroFalso,
+    gerarQuiz,
+    gerarAdivinhePalavra,
+    gerarParOuImpar,
+    gerarMaiorMenor,
+    gerarConversao,
+    embaralhar
+} = require("./gerador");
 
-const PORT = process.env.PORT || 3000;
-const URL = process.env.RENDER_EXTERNAL_URL || 'https://bug-free-octo-umbrella-1.onrender.com';
 
-bot.setWebHook(`${URL}/bot${TOKEN}`).then(() => {
-    console.log(`Webhook definido com sucesso para: ${URL}/bot${TOKEN}`);
-}).catch(err => {
-    console.log(`Erro ao definir webhook: ${err.message}`);
-});
+/* =========================================================
+   CONFIGURAÇÃO
+========================================================= */
 
-const server = http.createServer((req, res) => {
-    if (req.url === `/bot${TOKEN}`) {
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', () => {
-            try {
-                const update = JSON.parse(body);
-                bot.processUpdate(update);
-            } catch (e) {}
-            res.writeHead(200);
-            res.end('OK');
-        });
-    } else {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('Bot Online!\n');
+// =====================================================
+// 🔑 COLOQUE O TOKEN DO SEU BOT AQUI
+// =====================================================
+
+const TOKEN = "8887234517:AAFRBZUzlNYlX5SaCx8qHbojAdJGp32YDzg";
+
+// =====================================================
+// NÃO ALTERE ABAIXO
+// =====================================================
+
+if (!TOKEN || TOKEN === "COLE_SEU_TOKEN_AQUI") {
+    console.error("❌ Coloque o token do Telegram na variável TOKEN.");
+    process.exit(1);
+}
+const bot = new TelegramBot(
+    TOKEN,
+    {
+        polling: true
     }
-});
+);
 
-server.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
-});
 
-// Carrega as perguntas do ficheiro perguntas.json
-let bancoDeJogos = [];
-try {
-    const dadosArquivo = fs.readFileSync('perguntas.json', 'utf8');
-    bancoDeJogos = JSON.parse(dadosArquivo);
-    console.log(`✅ Sucesso! Carregadas ${bancoDeJogos.length} perguntas.`);
-} catch (erro) {
-    console.log('⚠️ Erro ao carregar o perguntas.json, a usar perguntas de segurança.');
-    bancoDeJogos = [
+/* =========================================================
+   DIRETÓRIOS
+========================================================= */
+
+const DATA_DIR =
+    path.join(__dirname, "dados");
+
+const PLAYERS_FILE =
+    path.join(
+        DATA_DIR,
+        "jogadores.json"
+    );
+
+const MINECRAFT_DIR =
+    path.join(
+        __dirname,
+        "minecraft"
+    );
+
+
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(
+        DATA_DIR,
         {
-            id: 'seg_1',
-            pergunta: '🧮 Quanto é 2 + 2?',
-            opcoes: [{ texto: '3', valor: 'errado1' }, { texto: '4', valor: 'certo' }, { texto: '5', valor: 'errado2' }],
-            respostaCerta: 'certo'
-        },
-        {
-            id: 'seg_2',
-            pergunta: '🧮 Quanto é 10 - 5?',
-            opcoes: [{ texto: '5', valor: 'certo' }, { texto: '2', valor: 'errado1' }, { texto: '8', valor: 'errado2' }],
-            respostaCerta: 'certo'
+            recursive: true
         }
-    ];
+    );
 }
 
-const pontuacoes = {};
-const jogoAtualPorChat = {};
-const historicoPerguntasPorChat = {};
 
-// Comando /start
-bot.onText(/\/start/, (msg) => {
-    const chatId = msg.chat.id;
-    if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
-
-    const teclado = {  
-        reply_markup: {  
-            inline_keyboard: [  
-                [{ text: '🎮 Jogar / Novo Desafio', callback_data: 'proximo_jogo' }],  
-                [{ text: '🏆 Ver Meus Pontos', callback_data: 'ver_pontos' }]  
-            ]  
-        }  
-    };  
-
-    bot.sendMessage(chatId,   
-        '🤖 *Bem-vindo ao Super Bot de Matemática e IA!*\n\n' +  
-        '🧠 *Quiz Matemático:* Desafios dinâmicos sem repetições cansativas.\n' +  
-        '🧮 *Calculadora:* `/calc [expressão]` (ex: `/calc 50:5`)\n' +
-        '💡 *IA Ajuda Pessoal:* `/ia [pergunta]` (ex: `/ia como criar uma rotina de estudos`)\n\n' +  
-        'Clica abaixo para começar:',   
-        { parse_mode: 'Markdown', ...teclado }  
+if (!fs.existsSync(MINECRAFT_DIR)) {
+    fs.mkdirSync(
+        MINECRAFT_DIR,
+        {
+            recursive: true
+        }
     );
-});
+}
 
-// Comando Calculadora
-bot.onText(/\/calc (.+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const expressao = match[1];
+
+/* =========================================================
+   JOGADORES
+========================================================= */
+
+let jogadores = {};
+
+try {
+
+    if (
+        fs.existsSync(
+            PLAYERS_FILE
+        )
+    ) {
+
+        jogadores =
+            JSON.parse(
+                fs.readFileSync(
+                    PLAYERS_FILE,
+                    "utf8"
+                )
+            ) || {};
+    }
+
+} catch {
+
+    jogadores = {};
+
+}
+
+
+function salvarJogadores() {
+
+    fs.writeFileSync(
+        PLAYERS_FILE,
+        JSON.stringify(
+            jogadores,
+            null,
+            2
+        ),
+        "utf8"
+    );
+}
+
+
+function obterJogador(msg) {
+
+    const id =
+        String(msg.from.id);
+
+    if (!jogadores[id]) {
+
+        jogadores[id] = {
+
+            id,
+
+            nome:
+                msg.from.first_name ||
+                "Jogador",
+
+            username:
+                msg.from.username ||
+                "",
+
+            pontos: 0,
+
+            partidas: 0,
+
+            acertos: 0,
+
+            erros: 0,
+
+            sequencia: 0,
+
+            melhorSequencia: 0
+        };
+
+        salvarJogadores();
+    }
+
+    return jogadores[id];
+}
+
+
+/* =========================================================
+   PERGUNTAS ATIVAS
+========================================================= */
+
+const perguntasAtivas =
+    new Map();
+
+
+/* =========================================================
+   NORMALIZAÇÃO DE RESPOSTAS
+========================================================= */
+
+function normalizar(texto) {
+
+    return String(texto)
+
+        .toLowerCase()
+
+        .normalize("NFD")
+
+        .replace(
+            /[\u0300-\u036f]/g,
+            ""
+        )
+
+        .replace(
+            /[!?.,;:()[\]{}"'`]/g,
+            ""
+        )
+
+        .replace(
+            /\s+/g,
+            " "
+        )
+
+        .trim();
+}
+
+
+/* =========================================================
+   TECLADO PRINCIPAL
+========================================================= */
+
+function menuPrincipal() {
+
+    return {
+
+        keyboard: [
+
+            [
+                "🎮 Jogos",
+                "🧮 Matemática"
+            ],
+
+            [
+                "🧩 Charada",
+                "🌍 Quiz"
+            ],
+
+            [
+                "🔢 Sequência",
+                "✅ Verdadeiro/Falso"
+            ],
+
+            [
+                "🔤 Palavra",
+                "⛏️ Minecraft"
+            ],
+
+            [
+                "📊 Meu perfil",
+                "🏆 Ranking"
+            ],
+
+            [
+                "ℹ️ Ajuda"
+            ]
+
+        ],
+
+        resize_keyboard: true
+    };
+}
+
+
+/* =========================================================
+   MENU DE JOGOS
+========================================================= */
+
+function menuJogos() {
+
+    return {
+
+        keyboard: [
+
+            [
+                "➕ Soma",
+                "➖ Subtração"
+            ],
+
+            [
+                "✖️ Multiplicação",
+                "➗ Divisão"
+            ],
+
+            [
+                "📊 Porcentagem",
+                "🔢 Potência"
+            ],
+
+            [
+                "🧠 Equação",
+                "🔢 Sequência"
+            ],
+
+            [
+                "🧩 Charada",
+                "🌍 Quiz"
+            ],
+
+            [
+                "✅ Verdadeiro/Falso",
+                "🔤 Palavra"
+            ],
+
+            [
+                "🔢 Par/Ímpar",
+                "🎯 Maior/Menor"
+            ],
+
+            [
+                "📏 Conversão",
+                "⚡ Desafio"
+            ],
+
+            [
+                "⬅️ Menu"
+            ]
+
+        ],
+
+        resize_keyboard: true
+    };
+}
+
+
+/* =========================================================
+   ENVIAR DESAFIO
+========================================================= */
+
+function enviarDesafio(
+    msg,
+    tipo
+) {
+
+    const chatId =
+        msg.chat.id;
 
     try {
-        const expressaoFormatada = expressao.replace(/:/g, '/');
-        const resultado = eval(expressaoFormatada.replace(/[^0-9+\-*/().]/g, ''));
-        
-        if (resultado === undefined || isNaN(resultado)) {
-            return bot.sendMessage(chatId, '❌ Expressão inválida. Usa números e operadores simples (ex: `/calc 50 / 5` ou `/calc 50:5`)', { parse_mode: 'Markdown' });
+
+        let pergunta;
+
+        switch (tipo) {
+
+            case "soma":
+                pergunta =
+                    gerarSoma();
+                break;
+
+            case "subtracao":
+                pergunta =
+                    gerarSubtracao();
+                break;
+
+            case "multiplicacao":
+                pergunta =
+                    gerarMultiplicacao();
+                break;
+
+            case "divisao":
+                pergunta =
+                    gerarDivisao();
+                break;
+
+            case "porcentagem":
+                pergunta =
+                    gerarPorcentagem();
+                break;
+
+            case "potencia":
+                pergunta =
+                    gerarPotencia();
+                break;
+
+            case "equacao":
+                pergunta =
+                    gerarEquacao();
+                break;
+
+            case "sequencia":
+                pergunta =
+                    gerarSequencia();
+                break;
+
+            case "charada":
+                pergunta =
+                    gerarCharada();
+                break;
+
+            case "vf":
+                pergunta =
+                    gerarVerdadeiroFalso();
+                break;
+
+            case "quiz":
+                pergunta =
+                    gerarQuiz();
+                break;
+
+            case "palavra":
+                pergunta =
+                    gerarAdivinhePalavra();
+                break;
+
+            case "parimpar":
+                pergunta =
+                    gerarParOuImpar();
+                break;
+
+            case "maior":
+                pergunta =
+                    gerarMaiorMenor();
+                break;
+
+            case "conversao":
+                pergunta =
+                    gerarConversao();
+                break;
+
+            default:
+
+                pergunta =
+                    gerarSoma();
         }
-        bot.sendMessage(chatId, `🧮 *Resultado:* \`${expressao} = ${resultado}\``, { parse_mode: 'Markdown' });
-    } catch (e) {
-        bot.sendMessage(chatId, '❌ Erro ao calcular a expressão.');
-    }
-});
-// =====================================================
-// COMANDO /IA - IA GRATUITA SEM API KEY
-// =====================================================
 
-// Memória das conversas
-const memoriaIA = {};
-const LIMITE_MEMORIA = 10;
 
-bot.onText(/\/ia(?:\s+([\s\S]+))?/, async (msg, match) => {
-
-    const chatId = msg.chat.id;
-
-    const pergunta = match && match[1]
-        ? match[1].trim()
-        : '';
-
-    // Verifica se o utilizador escreveu alguma pergunta
-    if (!pergunta) {
-        return bot.sendMessage(
+        perguntasAtivas.set(
             chatId,
-            '🤖 Usa assim:\n\n/ia O que é inteligência artificial?'
+            pergunta
         );
-    }
 
-    try {
-        // Indicador de que o bot está a escrever
-        await bot.sendChatAction(chatId, 'typing');
-    } catch (e) {}
 
-    const pensando = await bot.sendMessage(
-        chatId,
-        '💡 Estou a pensar...'
-    );
+        let texto =
+            pergunta.pergunta;
 
-    try {
 
-        // Criar memória para este chat
-        if (!memoriaIA[chatId]) {
-            memoriaIA[chatId] = [];
+        if (
+            pergunta.opcoes &&
+            pergunta.opcoes.length
+        ) {
+
+            texto +=
+                "\n\n" +
+                pergunta.opcoes
+                    .map(
+                        (opcao, indice) => {
+
+                            const letra =
+                                String.fromCharCode(
+                                    65 + indice
+                                );
+
+                            return `${letra}) ${opcao}`;
+                        }
+                    )
+                    .join("\n");
+
+            texto +=
+                "\n\n💡 Responde com A, B, C ou D.";
         }
 
-        let historico = memoriaIA[chatId];
 
-        // Mantém apenas as últimas mensagens
-        historico = historico.slice(-LIMITE_MEMORIA);
+        texto +=
+            "\n\n🏆 Vale 10 pontos.";
 
-        // Adiciona a pergunta
-        historico.push({
-            role: 'user',
-            content: pergunta
-        });
 
-        // =================================================
-        // PEDIDO À IA
-        // =================================================
-
-        const resposta = await axios.post(
-            'https://blockrun.ai/api/v1/chat/completions',
-
+        bot.sendMessage(
+            chatId,
+            texto,
             {
-                model: 'nvidia/step-3.7-flash',
-
-                messages: [
-                    {
-                        role: 'system',
-                        content: `
-Tu és a IA inteligente deste bot do Telegram.
-
-Responde sempre em português.
-
-REGRAS:
-
-1. Responde de forma clara e fácil de entender.
-2. Vai diretamente ao assunto.
-3. Não inventes informações.
-4. Se não souberes alguma coisa, diz claramente.
-5. Para perguntas simples, responde de forma curta.
-6. Para perguntas complexas, explica passo a passo.
-7. Usa listas quando isso facilitar a compreensão.
-8. Mantém o contexto da conversa.
-9. Se o utilizador fizer uma pergunta relacionada com a anterior, usa a informação anterior.
-10. Se o utilizador pedir código, fornece código completo e explica onde colocar.
-11. Não repitas a pergunta do utilizador sem necessidade.
-12. Sê útil, natural e objetiva.
-`
-                    },
-
-                    ...historico
-                ],
-
-                temperature: 0.7,
-
-                max_tokens: 1200
-            },
-
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-
-                timeout: 60000
+                reply_markup:
+                    menuJogos()
             }
-        );
-
-        // =================================================
-        // LER RESPOSTA
-        // =================================================
-
-        const textoResposta =
-            resposta.data?.choices?.[0]?.message?.content?.trim();
-
-        if (!textoResposta) {
-            throw new Error(
-                'A IA não devolveu uma resposta válida.'
-            );
-        }
-
-        // =================================================
-        // GUARDAR RESPOSTA NA MEMÓRIA
-        // =================================================
-
-        historico.push({
-            role: 'assistant',
-            content: textoResposta
-        });
-
-        memoriaIA[chatId] =
-            historico.slice(-LIMITE_MEMORIA);
-
-        // =================================================
-        // APAGAR "ESTOU A PENSAR"
-        // =================================================
-
-        try {
-            await bot.deleteMessage(
-                chatId,
-                pensando.message_id
-            );
-        } catch (e) {}
-
-        // =================================================
-        // ENVIAR RESPOSTA
-        // =================================================
-
-        await bot.sendMessage(
-            chatId,
-            `💡 Resposta da IA:\n\n${textoResposta}`
         );
 
     } catch (erro) {
 
         console.error(
-            '❌ ERRO DA IA:',
-            erro.response?.data ||
-            erro.message
+            "Erro ao gerar desafio:",
+            erro
         );
 
-        // Apagar mensagem "Estou a pensar"
-        try {
-            await bot.deleteMessage(
-                chatId,
-                pensando.message_id
+        bot.sendMessage(
+            chatId,
+            "⚠️ Não consegui criar um desafio novo agora. Tenta novamente."
+        );
+    }
+}
+
+
+/* =========================================================
+   VERIFICAR RESPOSTA
+========================================================= */
+
+function verificarResposta(
+    msg
+) {
+
+    const chatId =
+        msg.chat.id;
+
+    const pergunta =
+        perguntasAtivas.get(
+            chatId
+        );
+
+    if (!pergunta) {
+
+        return false;
+    }
+
+
+    const jogador =
+        obterJogador(msg);
+
+    let respostaUsuario =
+        normalizar(
+            msg.text
+        );
+
+    let respostaCorreta =
+        normalizar(
+            pergunta.resposta
+        );
+
+
+    /*
+      Para perguntas A/B/C/D
+    */
+
+    if (
+        pergunta.opcoes &&
+        pergunta.opcoes.length
+    ) {
+
+        const letras = [
+            "a",
+            "b",
+            "c",
+            "d"
+        ];
+
+        const indice =
+            letras.indexOf(
+                respostaUsuario
             );
-        } catch (e) {}
 
-        let mensagemErro =
-            '⚠️ Não consegui obter uma resposta da IA. Tenta novamente.';
+        if (indice >= 0) {
 
-        if (erro.response?.status === 429) {
+            respostaUsuario =
+                normalizar(
+                    pergunta.opcoes[
+                        indice
+                    ]
+                );
+        }
+    }
 
-            mensagemErro =
-                '⚠️ A IA está muito ocupada neste momento. Tenta novamente daqui a pouco.';
 
-        } else if (erro.response?.status >= 500) {
+    const acertou =
+        respostaUsuario ===
+        respostaCorreta;
 
-            mensagemErro =
-                '⚠️ O servidor da IA está temporariamente indisponível.';
 
-        } else if (erro.response?.status === 402) {
+    jogador.partidas++;
 
-            mensagemErro =
-                '⚠️ Este modelo gratuito deixou de estar disponível neste momento.';
 
+    if (acertou) {
+
+        jogador.acertos++;
+
+        jogador.pontos += 10;
+
+        jogador.sequencia++;
+
+        if (
+            jogador.sequencia >
+            jogador.melhorSequencia
+        ) {
+
+            jogador.melhorSequencia =
+                jogador.sequencia;
         }
 
-        await bot.sendMessage(
+
+        let bonus = 0;
+
+
+        /*
+          Bónus por sequência
+        */
+
+        if (
+            jogador.sequencia >= 5
+        ) {
+
+            bonus = 10;
+
+            jogador.pontos +=
+                bonus;
+        }
+
+
+        salvarJogadores();
+
+
+        let mensagem =
+            "🎉 *CORRETO!*\n\n" +
+            "✅ Resposta certa!\n" +
+            "⭐ +10 pontos";
+
+
+        if (bonus) {
+
+            mensagem +=
+                `\n🔥 Bónus de sequência: +${bonus}`;
+        }
+
+
+        mensagem +=
+            `\n\n🏆 Pontos: ${jogador.pontos}` +
+            `\n🔥 Sequência: ${jogador.sequencia}`;
+
+
+        bot.sendMessage(
             chatId,
-            mensagemErro
+            mensagem,
+            {
+                parse_mode:
+                    "Markdown",
+                reply_markup:
+                    menuJogos()
+            }
+        );
+
+    } else {
+
+        jogador.erros++;
+
+        jogador.sequencia = 0;
+
+        salvarJogadores();
+
+
+        bot.sendMessage(
+
+            chatId,
+
+            "❌ *Resposta errada!*\n\n" +
+            `✅ Resposta correta: ${pergunta.resposta}\n\n` +
+            `🏆 Pontos: ${jogador.pontos}`,
+
+            {
+                parse_mode:
+                    "Markdown",
+                reply_markup:
+                    menuJogos()
+            }
         );
     }
-});
-        // Alternativa de fallback caso queiras manter sem chave (usando uma API pública de chat livre)
-        try {
-            const respostaAlternativa = await axios.get(`https://api.popcat.xyz/chatbot?msg=${encodeURIComponent(pergunta)}`);
-            if (respostaAlternativa.data && respostaAlternativa.data.response) {
-                return bot.sendMessage(chatId, `💡 *Resposta da IA:*\n\n${respostaAlternativa.data.response}`, { parse_mode: 'Markdown' });
+
+
+    perguntasAtivas.delete(
+        chatId
+    );
+
+
+    return true;
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+bot.onText(
+    /^\/start$/,
+    (msg) => {
+
+        obterJogador(msg);
+
+        bot.sendMessage(
+
+            msg.chat.id,
+
+            `🎮 *GUARDA-CHUVA BOT*
+
+Bem-vindo!
+
+Aqui podes jogar vários jogos,
+resolver problemas de matemática,
+responder charadas e quizzes.
+
+Também estamos a preparar o
+gerador de addons Minecraft Bedrock.
+
+👇 Escolhe uma opção:`,
+
+            {
+                parse_mode:
+                    "Markdown",
+
+                reply_markup:
+                    menuPrincipal()
             }
-        } catch (errAlt) {}
-
-        bot.sendMessage(chatId, '⚠️ Ocorreu um erro ao consultar a IA. Tenta novamente mais tarde.');
+        );
     }
-});
-// Gestão de Botões (Callback Query com correção definitiva para evitar repetições)
-bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const acao = query.data;
+);
 
-    if (!pontuacoes[chatId]) pontuacoes[chatId] = 0;
-    if (!historicoPerguntasPorChat[chatId]) historicoPerguntasPorChat[chatId] = [];
 
-    if (acao === 'ver_pontos') {  
-        try { await bot.answerCallbackQuery(query.id); } catch (e) {}  
-        return bot.sendMessage(chatId, `🏆 Tens atualmente *${pontuacoes[chatId]}* pontos!`, { parse_mode: 'Markdown' });  
-    }  
+/* =========================================================
+   AJUDA
+========================================================= */
 
-    if (acao === 'proximo_jogo') {  
-        if (!bancoDeJogos || bancoDeJogos.length === 0) {
-            try { await bot.answerCallbackQuery(query.id, { text: 'Sem perguntas disponíveis!' }); } catch (e) {}
+bot.onText(
+    /^\/ajuda$/,
+    (msg) => {
+
+        bot.sendMessage(
+
+            msg.chat.id,
+
+            `ℹ️ *COMANDOS*
+
+/start
+/jogos
+/matematica
+/quiz
+/charada
+/vf
+/sequencia
+/palavra
+/perfil
+/ranking
+
+⛏️ Minecraft:
+/mc descrição do addon
+
+Exemplo:
+
+/mc Cria um alienígena de fogo chamado Heatblast, vermelho, que pode voar e lançar bolas de fogo.`,
+
+            {
+                parse_mode:
+                    "Markdown",
+                reply_markup:
+                    menuPrincipal()
+            }
+        );
+    }
+);
+
+
+/* =========================================================
+   JOGOS
+========================================================= */
+
+bot.onText(
+    /^\/jogos$/,
+    (msg) => {
+
+        bot.sendMessage(
+            msg.chat.id,
+            "🎮 Escolhe um jogo:",
+            {
+                reply_markup:
+                    menuJogos()
+            }
+        );
+    }
+);
+
+
+bot.onText(
+    /^\/matematica$/,
+    (msg) => {
+
+        enviarDesafio(
+            msg,
+            "soma"
+        );
+    }
+);
+
+
+bot.onText(
+    /^\/quiz$/,
+    (msg) => {
+
+        enviarDesafio(
+            msg,
+            "quiz"
+        );
+    }
+);
+
+
+bot.onText(
+    /^\/charada$/,
+    (msg) => {
+
+        enviarDesafio(
+            msg,
+            "charada"
+        );
+    }
+);
+
+
+bot.onText(
+    /^\/vf$/,
+    (msg) => {
+
+        enviarDesafio(
+            msg,
+            "vf"
+        );
+    }
+);
+
+
+bot.onText(
+    /^\/sequencia$/,
+    (msg) => {
+
+        enviarDesafio(
+            msg,
+            "sequencia"
+        );
+    }
+);
+
+
+bot.onText(
+    /^\/palavra$/,
+    (msg) => {
+
+        enviarDesafio(
+            msg,
+            "palavra"
+        );
+    }
+);
+
+
+/* =========================================================
+   PERFIL
+========================================================= */
+
+bot.onText(
+    /^\/perfil$/,
+    (msg) => {
+
+        const jogador =
+            obterJogador(msg);
+
+        const taxa =
+            jogador.partidas
+                ? Math.round(
+                    jogador.acertos /
+                    jogador.partidas *
+                    100
+                )
+                : 0;
+
+
+        bot.sendMessage(
+
+            msg.chat.id,
+
+            `📊 *MEU PERFIL*
+
+👤 ${jogador.nome}
+
+⭐ Pontos: ${jogador.pontos}
+
+🎮 Partidas: ${jogador.partidas}
+
+✅ Acertos: ${jogador.acertos}
+
+❌ Erros: ${jogador.erros}
+
+🎯 Aproveitamento: ${taxa}%
+
+🔥 Melhor sequência: ${jogador.melhorSequencia}`,
+
+            {
+                parse_mode:
+                    "Markdown"
+            }
+        );
+    }
+);
+
+
+/* =========================================================
+   RANKING
+========================================================= */
+
+bot.onText(
+    /^\/ranking$/,
+    (msg) => {
+
+        const lista =
+            Object.values(
+                jogadores
+            )
+                .sort(
+                    (a, b) =>
+                        b.pontos -
+                        a.pontos
+                )
+                .slice(
+                    0,
+                    10
+                );
+
+
+        if (!lista.length) {
+
+            bot.sendMessage(
+                msg.chat.id,
+                "🏆 Ainda não existem jogadores."
+            );
+
             return;
         }
 
-        // Se já respondeu a todas as perguntas do banco, limpa o histórico para recomeçar o ciclo limpo
-        if (historicoPerguntasPorChat[chatId].length >= bancoDeJogos.length) {
-            historicoPerguntasPorChat[chatId] = [];
-        }
 
-        // Filtra apenas os índices que ainda NÃO foram respondidos por este chat
-        let indicesDisponiveis = [];
-        for (let i = 0; i < bancoDeJogos.length; i++) {
-            if (!historicoPerguntasPorChat[chatId].includes(i)) {
-                indicesDisponiveis.push(i);
+        const texto =
+            lista
+                .map(
+                    (jogador, indice) => {
+
+                        return (
+                            `${indice + 1}. ` +
+                            `${jogador.nome} — ` +
+                            `⭐ ${jogador.pontos}`
+                        );
+                    }
+                )
+                .join("\n");
+
+
+        bot.sendMessage(
+
+            msg.chat.id,
+
+            `🏆 *RANKING*
+
+${texto}`,
+
+            {
+                parse_mode:
+                    "Markdown"
             }
-        }
-
-        // Se por alguma razão o array ficar vazio, limpa o histórico por segurança
-        if (indicesDisponiveis.length === 0) {
-            historicoPerguntasPorChat[chatId] = [];
-            for (let i = 0; i < bancoDeJogos.length; i++) {
-                indicesDisponiveis.push(i);
-            }
-        }
-
-        // Sorteia estritamente de entre os índices que ainda não saíram
-        const indiceSorteado = indicesDisponiveis[Math.floor(Math.random() * indicesDisponiveis.length)];
-        historicoPerguntasPorChat[chatId].push(indiceSorteado);
-
-        const jogoSorteado = bancoDeJogos[indiceSorteado];  
-        jogoAtualPorChat[chatId] = { respostaCerta: jogoSorteado.respostaCerta };  
-
-        const botoesOpcoes = jogoSorteado.opcoes.map(opcao => {  
-            return [{ text: opcao.texto, callback_data: `resp_${opcao.valor}` }];  
-        });  
-
-        try { await bot.answerCallbackQuery(query.id); } catch (e) {}  
-
-        return bot.sendMessage(chatId, `${jogoSorteado.pergunta}\n\n👇 *Escolha uma opção:*`, {  
-            parse_mode: 'Markdown',  
-            reply_markup: { inline_keyboard: botoesOpcoes }  
-        });  
-    }  
-
-    if (acao.startsWith('resp_')) {  
-        const escolhaUsuario = acao.replace('resp_', '');  
-        const dadosJogo = jogoAtualPorChat[chatId];  
-
-        if (!dadosJogo) {  
-            try { await bot.answerCallbackQuery(query.id, { text: '⚠️ Desafio expirado!' }); } catch (e) {}  
-            return;  
-        }  
-
-        if (escolhaUsuario === dadosJogo.respostaCerta) {  
-            pontuacoes[chatId] += 10;  
-            delete jogoAtualPorChat[chatId];  
-
-            try { await bot.answerCallbackQuery(query.id, { text: '🎉 Correto! +10 pontos' }); } catch (e) {}  
-
-            return bot.sendMessage(chatId, `🎉 **Parabéns! Acertaste!**\nTotal: *${pontuacoes[chatId]}* pontos`, {  
-                parse_mode: 'Markdown',  
-                reply_markup: {  
-                    inline_keyboard: [[{ text: '➡️ Próximo Desafio', callback_data: 'proximo_jogo' }]]  
-                }  
-            });  
-        } else {  
-            try { await bot.answerCallbackQuery(query.id, { text: '❌ Errado!' }); } catch (e) {}  
-
-            return bot.sendMessage(chatId, `❌ **Resposta incorreta!**`, {  
-                parse_mode: 'Markdown',  
-                reply_markup: {  
-                    inline_keyboard: [[{ text: '🔄 Tentar Outro', callback_data: 'proximo_jogo' }]]  
-                }  
-            });  
-        }  
+        );
     }
-});
+);
+
+
+/* =========================================================
+   COMANDO MINECRAFT
+========================================================= */
+
+/*
+  Por enquanto o /mc guarda a descrição do projeto.
+
+  Na próxima etapa vamos transformar essa descrição em:
+
+  - manifest.json
+  - Behavior Pack
+  - Resource Pack
+  - entidades
+  - itens
+  - blocos
+  - receitas
+  - funções
+  - scripts
+  - texturas/estrutura necessária
+  - ZIP
+  - .mcaddon
+
+  A versão alvo será configurável.
+*/
+
+bot.onText(
+    /^\/mc(?:\s+([\s\S]+))?$/,
+    async (msg, match) => {
+
+        const descricao =
+            match &&
+            match[1]
+                ? match[1].trim()
+                : "";
+
+
+        if (!descricao) {
+
+            bot.sendMessage(
+
+                msg.chat.id,
+
+                `⛏️ *GERADOR MINECRAFT BEDROCK*
+
+Descreve o addon que queres.
+
+Exemplo:
+
+/mc Cria um alienígena de fogo chamado Heatblast, vermelho, que voa e lança bolas de fogo.
+
+Também podes pedir:
+
+/mc Cria um novo mob chamado Dragão Azul.
+
+/mc Cria uma espada de gelo.
+
+/mc Cria um addon com 10 aliens.`,
+
+                {
+                    parse_mode:
+                        "Markdown"
+                }
+            );
+
+            return;
+        }
+
+
+        await bot.sendMessage(
+
+            msg.chat.id,
+
+            "⛏️ Entendi a descrição!\n\n" +
+            "🧠 Vou preparar a estrutura do addon Bedrock.\n\n" +
+            `📝 Pedido:\n${descricao}\n\n` +
+            "⚙️ O gerador Minecraft completo será ligado na próxima etapa."
+        );
+    }
+);
+
+
+/* =========================================================
+   BOTÕES DO MENU
+========================================================= */
+
+bot.on(
+    "message",
+    (msg) => {
+
+        if (!msg.text) {
+            return;
+        }
+
+
+        const texto =
+            msg.text.trim();
+
+
+        /*
+          Não tratar comandos aqui.
+        */
+
+        if (
+            texto.startsWith("/")
+        ) {
+
+            return;
+        }
+
+
+        const tipos = {
+
+            "➕ Soma":
+                "soma",
+
+            "➖ Subtração":
+                "subtracao",
+
+            "✖️ Multiplicação":
+                "multiplicacao",
+
+            "➗ Divisão":
+                "divisao",
+
+            "📊 Porcentagem":
+                "porcentagem",
+
+            "🔢 Potência":
+                "potencia",
+
+            "🧠 Equação":
+                "equacao",
+
+            "🔢 Sequência":
+                "sequencia",
+
+            "🧩 Charada":
+                "charada",
+
+            "🌍 Quiz":
+                "quiz",
+
+            "✅ Verdadeiro/Falso":
+                "vf",
+
+            "🔤 Palavra":
+                "palavra",
+
+            "🔢 Par/Ímpar":
+                "parimpar",
+
+            "🎯 Maior/Menor":
+                "maior",
+
+            "📏 Conversão":
+                "conversao"
+        };
+
+
+        if (tipos[texto]) {
+
+            enviarDesafio(
+                msg,
+                tipos[texto]
+            );
+
+            return;
+        }
+
+
+        if (
+            texto ===
+            "🎮 Jogos"
+        ) {
+
+            bot.sendMessage(
+
+                msg.chat.id,
+
+                "🎮 Escolhe o tipo de jogo:",
+
+                {
+                    reply_markup:
+                        menuJogos()
+                }
+            );
+
+            return;
+        }
+
+
+        if (
+            texto ===
+            "⬅️ Menu"
+        ) {
+
+            bot.sendMessage(
+
+                msg.chat.id,
+
+                "🏠 Menu principal:",
+
+                {
+                    reply_markup:
+                        menuPrincipal()
+                }
+            );
+
+            return;
+        }
+
+
+        if (
+            texto ===
+            "📊 Meu perfil"
+        ) {
+
+            const jogador =
+                obterJogador(msg);
+
+            const taxa =
+                jogador.partidas
+                    ? Math.round(
+                        jogador.acertos /
+                        jogador.partidas *
+                        100
+                    )
+                    : 0;
+
+
+            bot.sendMessage(
+
+                msg.chat.id,
+
+                `📊 *PERFIL*
+
+⭐ ${jogador.pontos} pontos
+🎮 ${jogador.partidas} partidas
+✅ ${jogador.acertos} acertos
+❌ ${jogador.erros} erros
+🎯 ${taxa}% de acerto
+🔥 Melhor sequência: ${jogador.melhorSequencia}`,
+
+                {
+                    parse_mode:
+                        "Markdown"
+                }
+            );
+
+            return;
+        }
+
+
+        if (
+            texto ===
+            "🏆 Ranking"
+        ) {
+
+            const lista =
+                Object.values(
+                    jogadores
+                )
+                    .sort(
+                        (a, b) =>
+                            b.pontos -
+                            a.pontos
+                    )
+                    .slice(
+                        0,
+                        10
+                    );
+
+
+            if (!lista.length) {
+
+                bot.sendMessage(
+                    msg.chat.id,
+                    "🏆 Ainda não existem jogadores."
+                );
+
+                return;
+            }
+
+
+            const ranking =
+                lista
+                    .map(
+                        (j, i) =>
+                            `${i + 1}. ${j.nome} — ⭐ ${j.pontos}`
+                    )
+                    .join("\n");
+
+
+            bot.sendMessage(
+
+                msg.chat.id,
+
+                `🏆 *RANKING*\n\n${ranking}`,
+
+                {
+                    parse_mode:
+                        "Markdown"
+                }
+            );
+
+            return;
+        }
+
+
+        if (
+            texto ===
+            "⛏️ Minecraft"
+        ) {
+
+            bot.sendMessage(
+
+                msg.chat.id,
+
+                `⛏️ *GERADOR MINECRAFT*
+
+Escreve:
+
+/mc + descrição
+
+Exemplo:
+
+/mc Cria um mob dragão azul que voa, tem 100 de vida e lança fogo.`,
+
+                {
+                    parse_mode:
+                        "Markdown"
+                }
+            );
+
+            return;
+        }
+
+
+        if (
+            texto ===
+            "ℹ️ Ajuda"
+        ) {
+
+            bot.sendMessage(
+
+                msg.chat.id,
+
+                "ℹ️ Usa /ajuda para ver todos os comandos."
+            );
+
+            return;
+        }
+
+
+        /*
+          Se houver pergunta ativa,
+          tratar mensagem como resposta.
+        */
+
+        if (
+            perguntasAtivas.has(
+                msg.chat.id
+            )
+        ) {
+
+            verificarResposta(
+                msg
+            );
+        }
+
+    }
+);
+
+
+/* =========================================================
+   ERROS
+========================================================= */
+
+bot.on(
+    "polling_error",
+    (erro) => {
+
+        console.error(
+            "❌ Telegram polling:",
+            erro.message
+        );
+    }
+);
+
+
+console.log(
+    "🎮 Guarda-Chuva Bot iniciado!"
+);
