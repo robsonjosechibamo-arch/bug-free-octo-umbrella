@@ -1,6 +1,7 @@
 const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
 
 const {
     gerarSoma,
@@ -18,34 +19,70 @@ const {
     gerarParOuImpar,
     gerarMaiorMenor,
     gerarConversao,
-    embaralhar
+    gerarDesafio
 } = require("./gerador");
 
-const { gerarAddon, MINECRAFT_VERSION } = require("./minecraft");
+const {
+    gerarAddon,
+    MINECRAFT_VERSION
+} = require("./minecraft");
+
+
 /* =========================================================
    CONFIGURAÇÃO
 ========================================================= */
 
-// =====================================================
-// 🔑 COLOQUE O TOKEN DO SEU BOT AQUI
-// =====================================================
+/* =========================================================
+   🔑 TOKEN DO BOT TELEGRAM
+========================================================= */
 
+// COLOCA O TOKEN DO TEU BOT ENTRE AS ASPAS:
 const TOKEN = "8914048357:AAHOjj5fQhSDDy5NWeJBD33BQNW20N5OCMM";
 
-// =====================================================
-// NÃO ALTERE ABAIXO
-// =====================================================
 
-if (!TOKEN || TOKEN === "COLE_SEU_TOKEN_AQUI") {
-    console.error("❌ Coloque o token do Telegram na variável TOKEN.");
+if (
+    !TOKEN ||
+    TOKEN === "COLE_AQUI_O_TOKEN_DO_TELEGRAM"
+) {
+
+    console.error(
+        "❌ Coloca o token do Telegram na variável TOKEN."
+    );
+
     process.exit(1);
 }
-const bot = new TelegramBot(
-    TOKEN,
-    {
-        polling: true
-    }
-);
+
+
+if (!TOKEN) {
+
+    console.error(
+        "❌ TOKEN DO TELEGRAM NÃO CONFIGURADO."
+    );
+
+    console.error(
+        "Configure TELEGRAM_TOKEN nas variáveis de ambiente do Render."
+    );
+
+    process.exit(1);
+}
+
+
+const bot =
+    new TelegramBot(
+        TOKEN,
+        {
+            polling: true
+        }
+    );
+
+
+/* =========================================================
+   PORTA HTTP PARA O RENDER
+========================================================= */
+
+const PORT =
+    process.env.PORT ||
+    3000;
 
 
 /* =========================================================
@@ -53,13 +90,18 @@ const bot = new TelegramBot(
 ========================================================= */
 
 const DATA_DIR =
-    path.join(__dirname, "dados");
+    path.join(
+        __dirname,
+        "dados"
+    );
+
 
 const PLAYERS_FILE =
     path.join(
         DATA_DIR,
         "jogadores.json"
     );
+
 
 const MINECRAFT_DIR =
     path.join(
@@ -69,6 +111,7 @@ const MINECRAFT_DIR =
 
 
 if (!fs.existsSync(DATA_DIR)) {
+
     fs.mkdirSync(
         DATA_DIR,
         {
@@ -79,6 +122,7 @@ if (!fs.existsSync(DATA_DIR)) {
 
 
 if (!fs.existsSync(MINECRAFT_DIR)) {
+
     fs.mkdirSync(
         MINECRAFT_DIR,
         {
@@ -93,6 +137,7 @@ if (!fs.existsSync(MINECRAFT_DIR)) {
 ========================================================= */
 
 let jogadores = {};
+
 
 try {
 
@@ -111,31 +156,51 @@ try {
             ) || {};
     }
 
-} catch {
+} catch (erro) {
+
+    console.error(
+        "⚠️ Erro ao carregar jogadores:",
+        erro.message
+    );
 
     jogadores = {};
-
 }
 
 
 function salvarJogadores() {
 
-    fs.writeFileSync(
-        PLAYERS_FILE,
-        JSON.stringify(
-            jogadores,
-            null,
-            2
-        ),
-        "utf8"
-    );
+    try {
+
+        fs.writeFileSync(
+
+            PLAYERS_FILE,
+
+            JSON.stringify(
+                jogadores,
+                null,
+                2
+            ),
+
+            "utf8"
+        );
+
+    } catch (erro) {
+
+        console.error(
+            "❌ Erro ao salvar jogadores:",
+            erro.message
+        );
+    }
 }
 
 
 function obterJogador(msg) {
 
     const id =
-        String(msg.from.id);
+        String(
+            msg.from.id
+        );
+
 
     if (!jogadores[id]) {
 
@@ -164,8 +229,10 @@ function obterJogador(msg) {
             melhorSequencia: 0
         };
 
+
         salvarJogadores();
     }
+
 
     return jogadores[id];
 }
@@ -180,7 +247,7 @@ const perguntasAtivas =
 
 
 /* =========================================================
-   NORMALIZAÇÃO DE RESPOSTAS
+   NORMALIZAÇÃO
 ========================================================= */
 
 function normalizar(texto) {
@@ -211,7 +278,7 @@ function normalizar(texto) {
 
 
 /* =========================================================
-   TECLADO PRINCIPAL
+   MENU PRINCIPAL
 ========================================================= */
 
 function menuPrincipal() {
@@ -329,91 +396,162 @@ function enviarDesafio(
     const chatId =
         msg.chat.id;
 
+
     try {
 
         let pergunta;
 
+
         switch (tipo) {
 
             case "soma":
+
                 pergunta =
                     gerarSoma();
+
                 break;
+
 
             case "subtracao":
+
                 pergunta =
                     gerarSubtracao();
+
                 break;
+
 
             case "multiplicacao":
+
                 pergunta =
                     gerarMultiplicacao();
+
                 break;
+
 
             case "divisao":
+
                 pergunta =
                     gerarDivisao();
+
                 break;
+
 
             case "porcentagem":
+
                 pergunta =
                     gerarPorcentagem();
+
                 break;
+
 
             case "potencia":
+
                 pergunta =
                     gerarPotencia();
+
                 break;
+
 
             case "equacao":
+
                 pergunta =
                     gerarEquacao();
+
                 break;
+
 
             case "sequencia":
+
                 pergunta =
                     gerarSequencia();
+
                 break;
+
 
             case "charada":
+
                 pergunta =
                     gerarCharada();
+
                 break;
+
 
             case "vf":
+
                 pergunta =
                     gerarVerdadeiroFalso();
+
                 break;
+
 
             case "quiz":
+
                 pergunta =
                     gerarQuiz();
+
                 break;
+
 
             case "palavra":
+
                 pergunta =
                     gerarAdivinhePalavra();
+
                 break;
+
 
             case "parimpar":
+
                 pergunta =
                     gerarParOuImpar();
+
                 break;
+
 
             case "maior":
+
                 pergunta =
                     gerarMaiorMenor();
+
                 break;
 
+
             case "conversao":
+
                 pergunta =
                     gerarConversao();
+
                 break;
+
+
+            /*
+            =============================================
+            NOVO DESAFIO
+            =============================================
+            */
+
+            case "desafio":
+
+                pergunta =
+                    gerarDesafio();
+
+                break;
+
 
             default:
 
                 pergunta =
-                    gerarSoma();
+                    gerarDesafio();
+
+                break;
+        }
+
+
+        if (!pergunta) {
+
+            throw new Error(
+                "O gerador não devolveu uma pergunta."
+            );
         }
 
 
@@ -427,6 +565,12 @@ function enviarDesafio(
             pergunta.pergunta;
 
 
+        /*
+        =============================================
+        OPÇÕES
+        =============================================
+        */
+
         if (
             pergunta.opcoes &&
             pergunta.opcoes.length
@@ -434,19 +578,28 @@ function enviarDesafio(
 
             texto +=
                 "\n\n" +
+
                 pergunta.opcoes
+
                     .map(
-                        (opcao, indice) => {
+                        (
+                            opcao,
+                            indice
+                        ) => {
 
                             const letra =
                                 String.fromCharCode(
                                     65 + indice
                                 );
 
-                            return `${letra}) ${opcao}`;
+                            return (
+                                `${letra}) ${opcao}`
+                            );
                         }
                     )
+
                     .join("\n");
+
 
             texto +=
                 "\n\n💡 Responde com A, B, C ou D.";
@@ -458,24 +611,49 @@ function enviarDesafio(
 
 
         bot.sendMessage(
+
             chatId,
+
             texto,
+
             {
                 reply_markup:
                     menuJogos()
             }
+
+        ).catch(
+            erro => {
+
+                console.error(
+                    "❌ Erro ao enviar desafio:",
+                    erro.message
+                );
+            }
         );
+
 
     } catch (erro) {
 
         console.error(
-            "Erro ao gerar desafio:",
+            "❌ Erro ao gerar desafio:",
             erro
         );
 
+
         bot.sendMessage(
+
             chatId,
-            "⚠️ Não consegui criar um desafio novo agora. Tenta novamente."
+
+            "⚠️ Não consegui criar um desafio novo agora.\n\n" +
+            "Tenta novamente.",
+
+            {
+                reply_markup:
+                    menuJogos()
+            }
+
+        ).catch(
+            () => {}
         );
     }
 }
@@ -485,17 +663,17 @@ function enviarDesafio(
    VERIFICAR RESPOSTA
 ========================================================= */
 
-function verificarResposta(
-    msg
-) {
+function verificarResposta(msg) {
 
     const chatId =
         msg.chat.id;
+
 
     const pergunta =
         perguntasAtivas.get(
             chatId
         );
+
 
     if (!pergunta) {
 
@@ -506,10 +684,12 @@ function verificarResposta(
     const jogador =
         obterJogador(msg);
 
+
     let respostaUsuario =
         normalizar(
             msg.text
         );
+
 
     let respostaCorreta =
         normalizar(
@@ -518,7 +698,9 @@ function verificarResposta(
 
 
     /*
-      Para perguntas A/B/C/D
+    =============================================
+    RESPOSTAS A/B/C/D
+    =============================================
     */
 
     if (
@@ -533,12 +715,17 @@ function verificarResposta(
             "d"
         ];
 
+
         const indice =
             letras.indexOf(
                 respostaUsuario
             );
 
-        if (indice >= 0) {
+
+        if (
+            indice >= 0 &&
+            pergunta.opcoes[indice] !== undefined
+        ) {
 
             respostaUsuario =
                 normalizar(
@@ -546,6 +733,53 @@ function verificarResposta(
                         indice
                     ]
                 );
+        }
+    }
+
+
+    /*
+    =============================================
+    VERDADEIRO / FALSO
+    =============================================
+    */
+
+    if (
+        pergunta.resposta === "V" ||
+        pergunta.resposta === "F"
+    ) {
+
+        if (
+            respostaUsuario === "verdadeiro"
+        ) {
+
+            respostaUsuario = "v";
+        }
+
+        if (
+            respostaUsuario === "falso"
+        ) {
+
+            respostaUsuario = "f";
+        }
+    }
+
+
+    /*
+    =============================================
+    PAR / ÍMPAR
+    =============================================
+    */
+
+    if (
+        respostaCorreta === "par" ||
+        respostaCorreta === "impar"
+    ) {
+
+        if (
+            respostaUsuario === "ímpar"
+        ) {
+
+            respostaUsuario = "impar";
         }
     }
 
@@ -566,6 +800,7 @@ function verificarResposta(
 
         jogador.sequencia++;
 
+
         if (
             jogador.sequencia >
             jogador.melhorSequencia
@@ -578,10 +813,6 @@ function verificarResposta(
 
         let bonus = 0;
 
-
-        /*
-          Bónus por sequência
-        */
 
         if (
             jogador.sequencia >= 5
@@ -599,7 +830,9 @@ function verificarResposta(
 
         let mensagem =
             "🎉 *CORRETO!*\n\n" +
+
             "✅ Resposta certa!\n" +
+
             "⭐ +10 pontos";
 
 
@@ -611,26 +844,34 @@ function verificarResposta(
 
 
         mensagem +=
+
             `\n\n🏆 Pontos: ${jogador.pontos}` +
+
             `\n🔥 Sequência: ${jogador.sequencia}`;
 
 
         bot.sendMessage(
+
             chatId,
+
             mensagem,
+
             {
                 parse_mode:
                     "Markdown",
+
                 reply_markup:
                     menuJogos()
             }
         );
+
 
     } else {
 
         jogador.erros++;
 
         jogador.sequencia = 0;
+
 
         salvarJogadores();
 
@@ -640,12 +881,15 @@ function verificarResposta(
             chatId,
 
             "❌ *Resposta errada!*\n\n" +
+
             `✅ Resposta correta: ${pergunta.resposta}\n\n` +
+
             `🏆 Pontos: ${jogador.pontos}`,
 
             {
                 parse_mode:
                     "Markdown",
+
                 reply_markup:
                     menuJogos()
             }
@@ -667,10 +911,13 @@ function verificarResposta(
 ========================================================= */
 
 bot.onText(
+
     /^\/start$/,
-    (msg) => {
+
+    msg => {
 
         obterJogador(msg);
+
 
         bot.sendMessage(
 
@@ -684,8 +931,8 @@ Aqui podes jogar vários jogos,
 resolver problemas de matemática,
 responder charadas e quizzes.
 
-Também estamos a preparar o
-gerador de addons Minecraft Bedrock.
+Também temos um gerador
+de desafios novos.
 
 👇 Escolhe uma opção:`,
 
@@ -706,8 +953,10 @@ gerador de addons Minecraft Bedrock.
 ========================================================= */
 
 bot.onText(
+
     /^\/ajuda$/,
-    (msg) => {
+
+    msg => {
 
         bot.sendMessage(
 
@@ -726,8 +975,12 @@ bot.onText(
 /perfil
 /ranking
 
+⚡ Desafio:
+Usa o botão "⚡ Desafio" para gerar um desafio novo.
+
 ⛏️ Minecraft:
-/mc descrição do addon
+
+/mc descrição
 
 Exemplo:
 
@@ -736,6 +989,7 @@ Exemplo:
             {
                 parse_mode:
                     "Markdown",
+
                 reply_markup:
                     menuPrincipal()
             }
@@ -749,12 +1003,17 @@ Exemplo:
 ========================================================= */
 
 bot.onText(
+
     /^\/jogos$/,
-    (msg) => {
+
+    msg => {
 
         bot.sendMessage(
+
             msg.chat.id,
+
             "🎮 Escolhe um jogo:",
+
             {
                 reply_markup:
                     menuJogos()
@@ -765,8 +1024,10 @@ bot.onText(
 
 
 bot.onText(
+
     /^\/matematica$/,
-    (msg) => {
+
+    msg => {
 
         enviarDesafio(
             msg,
@@ -777,8 +1038,10 @@ bot.onText(
 
 
 bot.onText(
+
     /^\/quiz$/,
-    (msg) => {
+
+    msg => {
 
         enviarDesafio(
             msg,
@@ -789,8 +1052,10 @@ bot.onText(
 
 
 bot.onText(
+
     /^\/charada$/,
-    (msg) => {
+
+    msg => {
 
         enviarDesafio(
             msg,
@@ -801,8 +1066,10 @@ bot.onText(
 
 
 bot.onText(
+
     /^\/vf$/,
-    (msg) => {
+
+    msg => {
 
         enviarDesafio(
             msg,
@@ -813,8 +1080,10 @@ bot.onText(
 
 
 bot.onText(
+
     /^\/sequencia$/,
-    (msg) => {
+
+    msg => {
 
         enviarDesafio(
             msg,
@@ -825,8 +1094,10 @@ bot.onText(
 
 
 bot.onText(
+
     /^\/palavra$/,
-    (msg) => {
+
+    msg => {
 
         enviarDesafio(
             msg,
@@ -841,19 +1112,24 @@ bot.onText(
 ========================================================= */
 
 bot.onText(
+
     /^\/perfil$/,
-    (msg) => {
+
+    msg => {
 
         const jogador =
             obterJogador(msg);
 
+
         const taxa =
             jogador.partidas
+
                 ? Math.round(
                     jogador.acertos /
                     jogador.partidas *
                     100
                 )
+
                 : 0;
 
 
@@ -891,18 +1167,23 @@ bot.onText(
 ========================================================= */
 
 bot.onText(
+
     /^\/ranking$/,
-    (msg) => {
+
+    msg => {
 
         const lista =
+
             Object.values(
                 jogadores
             )
+
                 .sort(
                     (a, b) =>
                         b.pontos -
                         a.pontos
                 )
+
                 .slice(
                     0,
                     10
@@ -912,7 +1193,9 @@ bot.onText(
         if (!lista.length) {
 
             bot.sendMessage(
+
                 msg.chat.id,
+
                 "🏆 Ainda não existem jogadores."
             );
 
@@ -921,9 +1204,14 @@ bot.onText(
 
 
         const texto =
+
             lista
+
                 .map(
-                    (jogador, indice) => {
+                    (
+                        jogador,
+                        indice
+                    ) => {
 
                         return (
                             `${indice + 1}. ` +
@@ -932,6 +1220,7 @@ bot.onText(
                         );
                     }
                 )
+
                 .join("\n");
 
 
@@ -953,50 +1242,38 @@ ${texto}`,
 
 
 /* =========================================================
-   COMANDO MINECRAFT
-========================================================= */
-
-/*
-  Por enquanto o /mc guarda a descrição do projeto.
-
-  Na próxima etapa vamos transformar essa descrição em:
-
-  - manifest.json
-  - Behavior Pack
-  - Resource Pack
-  - entidades
-  - itens
-  - blocos
-  - receitas
-  - funções
-  - scripts
-  - texturas/estrutura necessária
-  - ZIP
-  - .mcaddon
-
-  A versão alvo será configurável.
-*/
-
-
-/* =========================================================
-   GERADOR MINECRAFT BEDROCK
+   MINECRAFT
 ========================================================= */
 
 bot.onText(
-    /^\/mc(?:\s+([\s\S]+))?$/,
-    async (msg, match) => {
 
-        const chatId = msg.chat.id;
+    /^\/mc(?:\s+([\s\S]+))?$/,
+
+    async (
+        msg,
+        match
+    ) => {
+
+        const chatId =
+            msg.chat.id;
+
 
         const descricao =
-            match && match[1]
+
+            match &&
+            match[1]
+
                 ? match[1].trim()
+
                 : "";
+
 
         if (!descricao) {
 
             await bot.sendMessage(
+
                 chatId,
+
                 `⛏️ *GERADOR MINECRAFT BEDROCK*
 
 Escreve o que queres criar.
@@ -1017,29 +1294,41 @@ Exemplo:
 
 🎯 Versão-alvo:
 Minecraft Bedrock ${MINECRAFT_VERSION}`,
+
                 {
-                    parse_mode: "Markdown"
+                    parse_mode:
+                        "Markdown"
                 }
             );
 
             return;
         }
 
+
         const mensagem =
+
             await bot.sendMessage(
+
                 chatId,
+
                 "⛏️ A criar o addon...\n\n" +
+
                 "🧠 Analisando descrição...\n" +
+
                 "📦 Preparando Behavior Pack...\n" +
+
                 "🎨 Preparando Resource Pack..."
             );
+
 
         try {
 
             const resultado =
+
                 await gerarAddon(
                     descricao
                 );
+
 
             await bot.editMessageText(
 
@@ -1052,13 +1341,18 @@ Minecraft Bedrock ${MINECRAFT_VERSION}`,
                 "📤 Enviando o arquivo...",
 
                 {
-                    chat_id: chatId,
+
+                    chat_id:
+                        chatId,
+
                     message_id:
                         mensagem.message_id,
 
-                    parse_mode: "Markdown"
+                    parse_mode:
+                        "Markdown"
                 }
             );
+
 
             await bot.sendDocument(
 
@@ -1067,40 +1361,50 @@ Minecraft Bedrock ${MINECRAFT_VERSION}`,
                 resultado.arquivo,
 
                 {
+
                     caption:
+
                         `⛏️ ${resultado.nome}\n\n` +
+
                         `Minecraft Bedrock ${resultado.versao}\n\n` +
+
                         "✅ Addon gerado pelo Guarda-Chuva Bot."
                 }
-
             );
+
 
         } catch (erro) {
 
             console.error(
-                "Erro no gerador Minecraft:",
+
+                "❌ Erro no gerador Minecraft:",
+
                 erro
             );
+
 
             await bot.sendMessage(
 
                 chatId,
 
                 "❌ Não foi possível gerar o addon.\n\n" +
-                `Erro: ${erro.message}\n\n` +
-                "Verifica se a plataforma onde o bot está hospedado possui o comando ZIP instalado."
+
+                `Erro: ${erro.message}`
             );
         }
     }
 );
+
 
 /* =========================================================
    BOTÕES DO MENU
 ========================================================= */
 
 bot.on(
+
     "message",
-    (msg) => {
+
+    msg => {
 
         if (!msg.text) {
             return;
@@ -1112,7 +1416,7 @@ bot.on(
 
 
         /*
-          Não tratar comandos aqui.
+        Não tratar comandos aqui.
         */
 
         if (
@@ -1168,20 +1472,41 @@ bot.on(
                 "maior",
 
             "📏 Conversão":
-                "conversao"
+                "conversao",
+
+            /*
+            NOVO BOTÃO
+            */
+
+            "⚡ Desafio":
+                "desafio"
         };
 
+
+        /*
+        =============================================
+        BOTÕES DE JOGOS
+        =============================================
+        */
 
         if (tipos[texto]) {
 
             enviarDesafio(
+
                 msg,
+
                 tipos[texto]
             );
 
             return;
         }
 
+
+        /*
+        =============================================
+        JOGOS
+        =============================================
+        */
 
         if (
             texto ===
@@ -1204,6 +1529,12 @@ bot.on(
         }
 
 
+        /*
+        =============================================
+        MENU
+        =============================================
+        */
+
         if (
             texto ===
             "⬅️ Menu"
@@ -1225,6 +1556,12 @@ bot.on(
         }
 
 
+        /*
+        =============================================
+        PERFIL
+        =============================================
+        */
+
         if (
             texto ===
             "📊 Meu perfil"
@@ -1233,13 +1570,16 @@ bot.on(
             const jogador =
                 obterJogador(msg);
 
+
             const taxa =
                 jogador.partidas
+
                     ? Math.round(
                         jogador.acertos /
                         jogador.partidas *
                         100
                     )
+
                     : 0;
 
 
@@ -1266,20 +1606,29 @@ bot.on(
         }
 
 
+        /*
+        =============================================
+        RANKING
+        =============================================
+        */
+
         if (
             texto ===
             "🏆 Ranking"
         ) {
 
             const lista =
+
                 Object.values(
                     jogadores
                 )
+
                     .sort(
                         (a, b) =>
                             b.pontos -
                             a.pontos
                     )
+
                     .slice(
                         0,
                         10
@@ -1289,7 +1638,9 @@ bot.on(
             if (!lista.length) {
 
                 bot.sendMessage(
+
                     msg.chat.id,
+
                     "🏆 Ainda não existem jogadores."
                 );
 
@@ -1298,11 +1649,23 @@ bot.on(
 
 
             const ranking =
+
                 lista
+
                     .map(
-                        (j, i) =>
-                            `${i + 1}. ${j.nome} — ⭐ ${j.pontos}`
+                        (
+                            jogador,
+                            indice
+                        ) => {
+
+                            return (
+                                `${indice + 1}. ` +
+                                `${jogador.nome} — ` +
+                                `⭐ ${jogador.pontos}`
+                            );
+                        }
                     )
+
                     .join("\n");
 
 
@@ -1310,7 +1673,9 @@ bot.on(
 
                 msg.chat.id,
 
-                `🏆 *RANKING*\n\n${ranking}`,
+                `🏆 *RANKING*
+
+${ranking}`,
 
                 {
                     parse_mode:
@@ -1321,6 +1686,12 @@ bot.on(
             return;
         }
 
+
+        /*
+        =============================================
+        MINECRAFT
+        =============================================
+        */
 
         if (
             texto ===
@@ -1351,6 +1722,12 @@ Exemplo:
         }
 
 
+        /*
+        =============================================
+        AJUDA
+        =============================================
+        */
+
         if (
             texto ===
             "ℹ️ Ajuda"
@@ -1368,8 +1745,9 @@ Exemplo:
 
 
         /*
-          Se houver pergunta ativa,
-          tratar mensagem como resposta.
+        =============================================
+        RESPOSTA DO JOGADOR
+        =============================================
         */
 
         if (
@@ -1388,34 +1766,78 @@ Exemplo:
 
 
 /* =========================================================
-   ERROS
+   ERROS DO TELEGRAM
 ========================================================= */
 
 bot.on(
+
     "polling_error",
-    (erro) => {
+
+    erro => {
 
         console.error(
+
             "❌ Telegram polling:",
+
             erro.message
         );
     }
 );
 
 
+/* =========================================================
+   SERVIDOR HTTP
+========================================================= */
+
+http
+
+    .createServer(
+        (
+            req,
+            res
+        ) => {
+
+            res.writeHead(
+
+                200,
+
+                {
+                    "Content-Type":
+                        "text/plain; charset=utf-8"
+                }
+            );
+
+
+            res.end(
+                "🎮 Guarda-Chuva Bot está online!"
+            );
+        }
+    )
+
+    .listen(
+
+        PORT,
+
+        "0.0.0.0",
+
+        () => {
+
+            console.log(
+
+                `🌐 Servidor HTTP iniciado na porta ${PORT}`
+            );
+        }
+    );
+
+
+/* =========================================================
+   INICIALIZAÇÃO
+========================================================= */
+
 console.log(
     "🎮 Guarda-Chuva Bot iniciado!"
 );
-const http = require("http");
 
-const PORT = process.env.PORT || 3000;
-
-http.createServer((req, res) => {
-    res.writeHead(200, {
-        "Content-Type": "text/plain; charset=utf-8"
-    });
-
-    res.end("🎮 Guarda-Chuva Bot está online!");
-}).listen(PORT, "0.0.0.0", () => {
-    console.log(`🌐 Servidor HTTP iniciado na porta ${PORT}`);
-});
+console.log(
+    "⚡ Gerador de desafios ativado!"
+);
