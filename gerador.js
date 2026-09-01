@@ -1,6 +1,21 @@
 const fs = require("fs");
 const path = require("path");
 
+/*
+=========================================================
+GUARDA-CHUVA BOT
+GERADOR DE DESAFIOS
+=========================================================
+
+Objetivos:
+- Gerar desafios aleatórios
+- Evitar repetições
+- Guardar histórico em dados/usadas.json
+- Manter histórico depois de reiniciar o bot
+- Não usar limite artificial de quantidade de perguntas
+=========================================================
+*/
+
 const DATA_DIR = path.join(__dirname, "dados");
 const USED_FILE = path.join(DATA_DIR, "usadas.json");
 
@@ -8,57 +23,138 @@ if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+/*
+=========================================================
+CARREGAR PERGUNTAS USADAS
+=========================================================
+*/
+
 let usadas = {};
 
 try {
     if (fs.existsSync(USED_FILE)) {
-        usadas = JSON.parse(
-            fs.readFileSync(USED_FILE, "utf8")
-        ) || {};
+        const conteudo = fs.readFileSync(
+            USED_FILE,
+            "utf8"
+        );
+
+        if (conteudo.trim()) {
+            usadas = JSON.parse(conteudo) || {};
+        }
     }
-} catch {
+} catch (erro) {
+    console.error(
+        "⚠️ Não foi possível carregar usadas.json:",
+        erro.message
+    );
+
     usadas = {};
 }
 
+
+/*
+=========================================================
+SALVAR PERGUNTAS USADAS
+=========================================================
+*/
+
 function salvarUsadas() {
-    fs.writeFileSync(
-        USED_FILE,
-        JSON.stringify(usadas, null, 2),
-        "utf8"
-    );
+
+    try {
+
+        fs.writeFileSync(
+            USED_FILE,
+            JSON.stringify(
+                usadas,
+                null,
+                2
+            ),
+            "utf8"
+        );
+
+    } catch (erro) {
+
+        console.error(
+            "❌ Erro ao salvar perguntas usadas:",
+            erro.message
+        );
+    }
 }
 
+
+/*
+=========================================================
+UTILITÁRIOS
+=========================================================
+*/
+
 function aleatorio(min, max) {
+
     return Math.floor(
-        Math.random() * (max - min + 1)
+        Math.random() *
+        (max - min + 1)
     ) + min;
 }
 
+
 function escolha(lista) {
+
+    if (!Array.isArray(lista) || !lista.length) {
+        throw new Error("Lista vazia.");
+    }
+
     return lista[
-        aleatorio(0, lista.length - 1)
+        aleatorio(
+            0,
+            lista.length - 1
+        )
     ];
 }
 
+
 function embaralhar(lista) {
+
     return [...lista].sort(
         () => Math.random() - 0.5
     );
 }
 
+
 function normalizar(texto) {
+
     return String(texto)
+
         .toLowerCase()
+
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[!?.,;:()[\]{}"'`]/g, "")
-        .replace(/\s+/g, " ")
+
+        .replace(
+            /[\u0300-\u036f]/g,
+            ""
+        )
+
+        .replace(
+            /[!?.,;:()[\]{}"'`]/g,
+            ""
+        )
+
+        .replace(
+            /\s+/g,
+            " "
+        )
+
         .trim();
 }
 
+
 /*
 =========================================================
-SISTEMA ANTI-REPETIÇÃO
+ANTI-REPETIÇÃO
+=========================================================
+
+Não existe mais o limite artificial de 100000 perguntas.
+
+O sistema continua guardando os IDs das perguntas usadas.
 =========================================================
 */
 
@@ -68,15 +164,24 @@ function novoDesafio(categoria, criar) {
         usadas[categoria] = [];
     }
 
-    const jaUsadas = new Set(
-        usadas[categoria]
-    );
+    const jaUsadas =
+        new Set(usadas[categoria]);
 
-    for (let tentativa = 0; tentativa < 500; tentativa++) {
+    /*
+    Tenta criar vários desafios diferentes.
+    */
+
+    for (
+        let tentativa = 0;
+        tentativa < 1000;
+        tentativa++
+    ) {
 
         const pergunta = criar();
 
-        if (!pergunta) continue;
+        if (!pergunta) {
+            continue;
+        }
 
         const id =
             pergunta.id ||
@@ -84,19 +189,15 @@ function novoDesafio(categoria, criar) {
                 pergunta.pergunta
             )}`;
 
+        /*
+        Ainda não foi usada.
+        */
+
         if (!jaUsadas.has(id)) {
 
             pergunta.id = id;
 
             usadas[categoria].push(id);
-
-            if (
-                usadas[categoria].length >
-                100000
-            ) {
-                usadas[categoria] =
-                    usadas[categoria].slice(-80000);
-            }
 
             salvarUsadas();
 
@@ -104,10 +205,16 @@ function novoDesafio(categoria, criar) {
         }
     }
 
+    /*
+    Se uma categoria baseada em catálogo esgotar,
+    informamos claramente o motivo.
+    */
+
     throw new Error(
-        `Não foi possível criar um novo desafio em ${categoria}.`
+        `A categoria "${categoria}" ficou sem novos desafios disponíveis.`
     );
 }
+
 
 /*
 =========================================================
@@ -117,127 +224,152 @@ MATEMÁTICA
 
 function gerarSoma() {
 
-    return novoDesafio("soma", () => {
+    return novoDesafio(
+        "soma",
+        () => {
 
-        const a = aleatorio(1, 9999);
-        const b = aleatorio(1, 9999);
+            const a =
+                aleatorio(
+                    1,
+                    999999
+                );
 
-        return {
-            pergunta:
-                `🧮 Quanto é ${a} + ${b}?`,
+            const b =
+                aleatorio(
+                    1,
+                    999999
+                );
 
-            resposta:
-                String(a + b),
+            return {
 
-            id:
-                `soma:${a}:${b}`
-        };
-    });
+                pergunta:
+                    `🧮 Quanto é ${a} + ${b}?`,
+
+                resposta:
+                    String(a + b),
+
+                id:
+                    `soma:${a}:${b}`
+            };
+        }
+    );
 }
 
 
 function gerarSubtracao() {
 
-    return novoDesafio("subtracao", () => {
+    return novoDesafio(
+        "subtracao",
+        () => {
 
-        const a = aleatorio(50, 9999);
-        const b = aleatorio(1, a);
+            const a =
+                aleatorio(
+                    1,
+                    999999
+                );
 
-        return {
-            pergunta:
-                `🧮 Quanto é ${a} − ${b}?`,
+            const b =
+                aleatorio(
+                    1,
+                    a
+                );
 
-            resposta:
-                String(a - b),
+            return {
 
-            id:
-                `sub:${a}:${b}`
-        };
-    });
+                pergunta:
+                    `🧮 Quanto é ${a} − ${b}?`,
+
+                resposta:
+                    String(a - b),
+
+                id:
+                    `sub:${a}:${b}`
+            };
+        }
+    );
 }
 
 
 function gerarMultiplicacao() {
 
-    return novoDesafio("multiplicacao", () => {
+    return novoDesafio(
+        "multiplicacao",
+        () => {
 
-        const a = aleatorio(2, 200);
-        const b = aleatorio(2, 200);
+            const a =
+                aleatorio(
+                    2,
+                    9999
+                );
 
-        return {
-            pergunta:
-                `🧮 Quanto é ${a} × ${b}?`,
+            const b =
+                aleatorio(
+                    2,
+                    9999
+                );
 
-            resposta:
-                String(a * b),
+            return {
 
-            id:
-                `mult:${a}:${b}`
-        };
-    });
+                pergunta:
+                    `🧮 Quanto é ${a} × ${b}?`,
+
+                resposta:
+                    String(a * b),
+
+                id:
+                    `mult:${a}:${b}`
+            };
+        }
+    );
 }
 
 
 function gerarDivisao() {
 
-    return novoDesafio("divisao", () => {
+    return novoDesafio(
+        "divisao",
+        () => {
 
-        const divisor = aleatorio(2, 50);
-        const resultado = aleatorio(2, 500);
+            const divisor =
+                aleatorio(
+                    2,
+                    9999
+                );
 
-        const dividendo =
-            divisor * resultado;
+            const resultado =
+                aleatorio(
+                    2,
+                    99999
+                );
 
-        return {
-            pergunta:
-                `🧮 Quanto é ${dividendo} ÷ ${divisor}?`,
+            const dividendo =
+                divisor *
+                resultado;
 
-            resposta:
-                String(resultado),
+            return {
 
-            id:
-                `div:${dividendo}:${divisor}`
-        };
-    });
-}
+                pergunta:
+                    `🧮 Quanto é ${dividendo} ÷ ${divisor}?`,
 
+                resposta:
+                    String(resultado),
 
-function gerarPorcentagem() {
-
-    return novoDesafio("porcentagem", () => {
-
-        const percentagens =
-            [5, 10, 15, 20, 25, 30, 40, 50, 75];
-
-        const p = escolha(percentagens);
-
-        const base = aleatorio(2, 200);
-
-        const total =
-            base * (100 / gcd(p, 100));
-
-        const resposta =
-            (total * p) / 100;
-
-        return {
-            pergunta:
-                `📊 Quanto é ${p}% de ${total}?`,
-
-            resposta:
-                String(resposta),
-
-            id:
-                `pct:${p}:${total}`
-        };
-    });
+                id:
+                    `div:${dividendo}:${divisor}`
+            };
+        }
+    );
 }
 
 
 function gcd(a, b) {
 
     while (b) {
+
         const temp = b;
+
         b = a % b;
+
         a = temp;
     }
 
@@ -245,80 +377,186 @@ function gcd(a, b) {
 }
 
 
+function gerarPorcentagem() {
+
+    return novoDesafio(
+        "porcentagem",
+        () => {
+
+            const p =
+                escolha([
+                    1,
+                    2,
+                    5,
+                    10,
+                    15,
+                    20,
+                    25,
+                    30,
+                    40,
+                    50,
+                    60,
+                    75,
+                    80,
+                    90
+                ]);
+
+            const base =
+                aleatorio(
+                    2,
+                    10000
+                );
+
+            const divisor =
+                gcd(p, 100);
+
+            const total =
+                base *
+                (100 / divisor);
+
+            const resposta =
+                (total * p) / 100;
+
+            return {
+
+                pergunta:
+                    `📊 Quanto é ${p}% de ${total}?`,
+
+                resposta:
+                    String(resposta),
+
+                id:
+                    `pct:${p}:${total}`
+            };
+        }
+    );
+}
+
+
 function gerarPotencia() {
 
-    return novoDesafio("potencia", () => {
+    return novoDesafio(
+        "potencia",
+        () => {
 
-        const base = aleatorio(2, 15);
-        const expoente = aleatorio(2, 4);
+            const base =
+                aleatorio(
+                    2,
+                    50
+                );
 
-        return {
-            pergunta:
-                `🔢 Quanto é ${base}^${expoente}?`,
+            const expoente =
+                aleatorio(
+                    2,
+                    5
+                );
 
-            resposta:
-                String(base ** expoente),
+            return {
 
-            id:
-                `pot:${base}:${expoente}`
-        };
-    });
+                pergunta:
+                    `🔢 Quanto é ${base}^${expoente}?`,
+
+                resposta:
+                    String(
+                        base ** expoente
+                    ),
+
+                id:
+                    `pot:${base}:${expoente}`
+            };
+        }
+    );
 }
 
 
 function gerarEquacao() {
 
-    return novoDesafio("equacao", () => {
+    return novoDesafio(
+        "equacao",
+        () => {
 
-        const x = aleatorio(-30, 100);
-        const b = aleatorio(1, 50);
+            const x =
+                aleatorio(
+                    -1000,
+                    1000
+                );
 
-        const resultado = x + b;
+            const b =
+                aleatorio(
+                    1,
+                    1000
+                );
 
-        return {
-            pergunta:
-                `🧠 Resolva:\n\nx + ${b} = ${resultado}\n\nQual é x?`,
+            const resultado =
+                x + b;
 
-            resposta:
-                String(x),
+            return {
 
-            id:
-                `eq:${x}:${b}`
-        };
-    });
+                pergunta:
+                    `🧠 Resolva:\n\n` +
+                    `x + ${b} = ${resultado}\n\n` +
+                    `Qual é x?`,
+
+                resposta:
+                    String(x),
+
+                id:
+                    `eq:${x}:${b}`
+            };
+        }
+    );
 }
 
 
 function gerarSequencia() {
 
-    return novoDesafio("sequencia", () => {
+    return novoDesafio(
+        "sequencia",
+        () => {
 
-        const inicio = aleatorio(1, 100);
-        const passo = aleatorio(2, 30);
+            const inicio =
+                aleatorio(
+                    1,
+                    10000
+                );
 
-        const valores = [
-            inicio,
-            inicio + passo,
-            inicio + passo * 2,
-            inicio + passo * 3
-        ];
+            const passo =
+                aleatorio(
+                    1,
+                    1000
+                );
 
-        const resposta =
-            inicio + passo * 4;
+            const valores = [
 
-        return {
-            pergunta:
-                `🔢 Complete a sequência:\n\n` +
-                `${valores.join(" → ")} → ?`,
+                inicio,
 
-            resposta:
-                String(resposta),
+                inicio + passo,
 
-            id:
-                `seq:${inicio}:${passo}`
-        };
-    });
+                inicio + passo * 2,
+
+                inicio + passo * 3
+            ];
+
+            const resposta =
+                inicio +
+                passo * 4;
+
+            return {
+
+                pergunta:
+                    `🔢 Complete a sequência:\n\n` +
+                    `${valores.join(" → ")} → ?`,
+
+                resposta:
+                    String(resposta),
+
+                id:
+                    `seq:${inicio}:${passo}`
+            };
+        }
+    );
 }
+
 
 /*
 =========================================================
@@ -356,31 +594,55 @@ const charadas = [
 
     ["É seu, mas outras pessoas usam mais que você. O que é?", "Nome"],
 
-    ["Tem cabeça e cauda, mas não tem corpo. O que é?", "Moeda"]
+    ["Tem cabeça e cauda, mas não tem corpo. O que é?", "Moeda"],
+
+    ["Quanto mais quente fica, mais fresca parece. O que é?", "Sombra"],
+
+    ["Tem uma boca, mas não fala. O que é?", "Rio"],
+
+    ["Tem olhos, mas não vê. O que é?", "Batata"],
+
+    ["Entra na água e não fica molhado. O que é?", "Reflexo"],
+
+    ["Quanto mais cresce, menos se vê. O que é?", "Escuridão"],
+
+    ["Tem asas, mas não voa. O que é?", "Moinho"],
+
+    ["Tem quatro pernas e não consegue andar. O que é?", "Cadeira"],
+
+    ["Pode viajar pelo mundo sem sair do lugar. O que é?", "Selo"],
+
+    ["Tem uma cama, mas nunca dorme. O que é?", "Rio"],
+
+    ["Tem muitas palavras, mas nunca fala. O que é?", "Dicionário"]
 
 ];
 
 
 function gerarCharada() {
 
-    return novoDesafio("charadas", () => {
+    return novoDesafio(
+        "charadas",
+        () => {
 
-        const item =
-            escolha(charadas);
+            const item =
+                escolha(charadas);
 
-        return {
+            return {
 
-            pergunta:
-                `🧩 CHARADA\n\n${item[0]}`,
+                pergunta:
+                    `🧩 CHARADA\n\n${item[0]}`,
 
-            resposta:
-                item[1],
+                resposta:
+                    item[1],
 
-            id:
-                `charada:${normalizar(item[0])}`
-        };
-    });
+                id:
+                    `charada:${normalizar(item[0])}`
+            };
+        }
+    );
 }
+
 
 /*
 =========================================================
@@ -418,7 +680,27 @@ const verdadeiroFalso = [
 
     ["Marte é conhecido como Planeta Vermelho.", "V"],
 
-    ["O oxigénio é um metal.", "F"]
+    ["O oxigénio é um metal.", "F"],
+
+    ["A Terra possui um satélite natural conhecido como Lua.", "V"],
+
+    ["O Japão fica na Europa.", "F"],
+
+    ["O número 10 é maior que o número 5.", "V"],
+
+    ["O Sol é uma estrela.", "V"],
+
+    ["A água ferve normalmente a 100 °C ao nível do mar.", "V"],
+
+    ["Um quadrado possui três lados.", "F"],
+
+    ["O continente africano é atravessado pelo Equador.", "V"],
+
+    ["Mercúrio é o planeta mais próximo do Sol.", "V"],
+
+    ["A baleia é um peixe.", "F"],
+
+    ["O ser humano adulto normalmente possui 206 ossos.", "V"]
 
 ];
 
@@ -430,7 +712,9 @@ function gerarVerdadeiroFalso() {
         () => {
 
             const item =
-                escolha(verdadeiroFalso);
+                escolha(
+                    verdadeiroFalso
+                );
 
             return {
 
@@ -448,6 +732,7 @@ function gerarVerdadeiroFalso() {
         }
     );
 }
+
 
 /*
 =========================================================
@@ -527,6 +812,54 @@ const quiz = [
         "Qual é o planeta mais próximo do Sol?",
         "Mercúrio",
         ["Terra", "Vénus", "Mercúrio", "Marte"]
+    ],
+
+    [
+        "Qual é o maior planeta do Sistema Solar?",
+        "Júpiter",
+        ["Terra", "Saturno", "Júpiter", "Netuno"]
+    ],
+
+    [
+        "Qual animal é conhecido como rei da selva?",
+        "Leão",
+        ["Tigre", "Leão", "Elefante", "Lobo"]
+    ],
+
+    [
+        "Quantos dias tem uma semana?",
+        "7",
+        ["5", "6", "7", "8"]
+    ],
+
+    [
+        "Qual é o resultado de 9 × 9?",
+        "81",
+        ["72", "81", "91", "99"]
+    ],
+
+    [
+        "Qual é o maior mamífero do mundo?",
+        "Baleia-azul",
+        ["Elefante", "Girafa", "Baleia-azul", "Hipopótamo"]
+    ],
+
+    [
+        "Qual é o idioma mais falado no Brasil?",
+        "Português",
+        ["Espanhol", "Português", "Inglês", "Francês"]
+    ],
+
+    [
+        "Qual é o planeta conhecido pelos seus anéis?",
+        "Saturno",
+        ["Marte", "Saturno", "Vénus", "Mercúrio"]
+    ],
+
+    [
+        "Quantos meses tem um ano?",
+        "12",
+        ["10", "11", "12", "13"]
     ]
 
 ];
@@ -534,27 +867,33 @@ const quiz = [
 
 function gerarQuiz() {
 
-    return novoDesafio("quiz", () => {
+    return novoDesafio(
+        "quiz",
+        () => {
 
-        const item =
-            escolha(quiz);
+            const item =
+                escolha(quiz);
 
-        return {
+            return {
 
-            pergunta:
-                `🌍 QUIZ\n\n${item[0]}`,
+                pergunta:
+                    `🌍 QUIZ\n\n${item[0]}`,
 
-            resposta:
-                item[1],
+                resposta:
+                    item[1],
 
-            opcoes:
-                embaralhar(item[2]),
+                opcoes:
+                    embaralhar(
+                        item[2]
+                    ),
 
-            id:
-                `quiz:${normalizar(item[0])}`
-        };
-    });
+                id:
+                    `quiz:${normalizar(item[0])}`
+            };
+        }
+    );
 }
+
 
 /*
 =========================================================
@@ -586,32 +925,62 @@ const palavras = [
 
     ["Lugar onde encontramos muitos livros.", "Biblioteca"],
 
-    ["Objeto que protege da chuva.", "Guarda-chuva"]
+    ["Objeto que protege da chuva.", "Guarda-chuva"],
+
+    ["Animal que produz leite.", "Vaca"],
+
+    ["Fruta geralmente vermelha e pequena.", "Morango"],
+
+    ["Objeto usado para cortar papel.", "Tesoura"],
+
+    ["Objeto usado para apagar o que foi escrito a lápis.", "Borracha"],
+
+    ["Lugar onde compramos medicamentos.", "Farmácia"],
+
+    ["Veículo que circula sobre trilhos.", "Comboio"],
+
+    ["Animal conhecido por ter uma tromba.", "Elefante"],
+
+    ["Fruta tropical de casca verde ou amarela.", "Manga"],
+
+    ["Objeto usado para iluminar no escuro.", "Lanterna"],
+
+    ["Lugar onde os aviões pousam.", "Aeroporto"],
+
+    ["Objeto usado para ouvir música sem alto-falante.", "Fone"],
+
+    ["Animal que vive na água e possui barbatanas.", "Peixe"],
+
+    ["Objeto usado para tirar fotografias.", "Câmara"]
 
 ];
 
 
 function gerarAdivinhePalavra() {
 
-    return novoDesafio("palavras", () => {
+    return novoDesafio(
+        "palavras",
+        () => {
 
-        const item =
-            escolha(palavras);
+            const item =
+                escolha(palavras);
 
-        return {
+            return {
 
-            pergunta:
-                `🔤 ADIVINHE A PALAVRA\n\n` +
-                `💡 Dica: ${item[0]}`,
+                pergunta:
+                    `🔤 ADIVINHE A PALAVRA\n\n` +
+                    `💡 Dica: ${item[0]}`,
 
-            resposta:
-                item[1],
+                resposta:
+                    item[1],
 
-            id:
-                `palavra:${normalizar(item[0])}`
-        };
-    });
+                id:
+                    `palavra:${normalizar(item[0])}`
+            };
+        }
+    );
 }
+
 
 /*
 =========================================================
@@ -621,26 +990,33 @@ PAR OU ÍMPAR
 
 function gerarParOuImpar() {
 
-    return novoDesafio("par_impar", () => {
+    return novoDesafio(
+        "par_impar",
+        () => {
 
-        const numero =
-            aleatorio(1, 999999);
+            const numero =
+                aleatorio(
+                    1,
+                    999999999
+                );
 
-        return {
+            return {
 
-            pergunta:
-                `🔢 O número ${numero} é PAR ou ÍMPAR?`,
+                pergunta:
+                    `🔢 O número ${numero} é PAR ou ÍMPAR?`,
 
-            resposta:
-                numero % 2 === 0
-                    ? "Par"
-                    : "Ímpar",
+                resposta:
+                    numero % 2 === 0
+                        ? "Par"
+                        : "Ímpar",
 
-            id:
-                `parimpar:${numero}`
-        };
-    });
+                id:
+                    `parimpar:${numero}`
+            };
+        }
+    );
 }
+
 
 /*
 =========================================================
@@ -650,30 +1026,51 @@ MAIOR / MENOR
 
 function gerarMaiorMenor() {
 
-    return novoDesafio("maior_menor", () => {
+    return novoDesafio(
+        "maior_menor",
+        () => {
 
-        const a = aleatorio(1, 99999);
+            const a =
+                aleatorio(
+                    1,
+                    999999999
+                );
 
-        let b =
-            aleatorio(1, 99999);
+            let b =
+                aleatorio(
+                    1,
+                    999999999
+                );
 
-        while (a === b) {
-            b = aleatorio(1, 99999);
+            while (a === b) {
+
+                b =
+                    aleatorio(
+                        1,
+                        999999999
+                    );
+            }
+
+            return {
+
+                pergunta:
+                    `🎯 Qual é maior: ${a} ou ${b}?`,
+
+                resposta:
+                    String(
+                        Math.max(
+                            a,
+                            b
+                        )
+                    ),
+
+                id:
+                    `maior:${a}:${b}`
+            };
         }
-
-        return {
-
-            pergunta:
-                `🎯 Qual é maior: ${a} ou ${b}?`,
-
-            resposta:
-                String(Math.max(a, b)),
-
-            id:
-                `maior:${a}:${b}`
-        };
-    });
+    );
 }
+
 
 /*
 =========================================================
@@ -683,63 +1080,252 @@ CONVERSÕES
 
 function gerarConversao() {
 
-    return novoDesafio("conversao", () => {
+    return novoDesafio(
+        "conversao",
+        () => {
 
-        const tipo =
-            aleatorio(1, 3);
+            const tipo =
+                aleatorio(
+                    1,
+                    6
+                );
 
-        if (tipo === 1) {
 
-            const metros =
-                aleatorio(1, 1000);
+            if (tipo === 1) {
+
+                const metros =
+                    aleatorio(
+                        1,
+                        100000
+                    );
+
+                return {
+
+                    pergunta:
+                        `📏 Quantos centímetros existem em ${metros} metros?`,
+
+                    resposta:
+                        String(
+                            metros * 100
+                        ),
+
+                    id:
+                        `cm:${metros}`
+                };
+            }
+
+
+            if (tipo === 2) {
+
+                const km =
+                    aleatorio(
+                        1,
+                        100000
+                    );
+
+                return {
+
+                    pergunta:
+                        `🛣️ Quantos metros existem em ${km} km?`,
+
+                    resposta:
+                        String(
+                            km * 1000
+                        ),
+
+                    id:
+                        `m:${km}`
+                };
+            }
+
+
+            if (tipo === 3) {
+
+                const horas =
+                    aleatorio(
+                        1,
+                        1000
+                    );
+
+                return {
+
+                    pergunta:
+                        `⏱️ Quantos minutos existem em ${horas} horas?`,
+
+                    resposta:
+                        String(
+                            horas * 60
+                        ),
+
+                    id:
+                        `min:${horas}`
+                };
+            }
+
+
+            if (tipo === 4) {
+
+                const kg =
+                    aleatorio(
+                        1,
+                        100000
+                    );
+
+                return {
+
+                    pergunta:
+                        `⚖️ Quantos gramas existem em ${kg} kg?`,
+
+                    resposta:
+                        String(
+                            kg * 1000
+                        ),
+
+                    id:
+                        `g:${kg}`
+                };
+            }
+
+
+            if (tipo === 5) {
+
+                const litros =
+                    aleatorio(
+                        1,
+                        100000
+                    );
+
+                return {
+
+                    pergunta:
+                        `🥤 Quantos mililitros existem em ${litros} litros?`,
+
+                    resposta:
+                        String(
+                            litros * 1000
+                        ),
+
+                    id:
+                        `ml:${litros}`
+                };
+            }
+
+
+            const minutos =
+                aleatorio(
+                    1,
+                    100000
+                );
 
             return {
 
                 pergunta:
-                    `📏 Quantos centímetros existem em ${metros} metros?`,
+                    `⏱️ Quantos segundos existem em ${minutos} minutos?`,
 
                 resposta:
-                    String(metros * 100),
+                    String(
+                        minutos * 60
+                    ),
 
                 id:
-                    `cm:${metros}`
+                    `seg:${minutos}`
             };
         }
-
-        if (tipo === 2) {
-
-            const km =
-                aleatorio(1, 1000);
-
-            return {
-
-                pergunta:
-                    `🛣️ Quantos metros existem em ${km} km?`,
-
-                resposta:
-                    String(km * 1000),
-
-                id:
-                    `m:${km}`
-            };
-        }
-
-        const horas =
-            aleatorio(1, 24);
-
-        return {
-
-            pergunta:
-                `⏱️ Quantos minutos existem em ${horas} horas?`,
-
-            resposta:
-                String(horas * 60),
-
-            id:
-                `min:${horas}`
-        };
-    });
+    );
 }
+
+
+/*
+=========================================================
+DESAFIO GERAL
+=========================================================
+
+Mistura todas as categorias disponíveis.
+
+O index.js pode chamar:
+
+gerarDesafio()
+=========================================================
+*/
+
+function gerarDesafio() {
+
+    const categorias = [
+
+        "soma",
+        "subtracao",
+        "multiplicacao",
+        "divisao",
+        "porcentagem",
+        "potencia",
+        "equacao",
+        "sequencia",
+        "charada",
+        "verdadeiro_falso",
+        "quiz",
+        "palavras",
+        "par_impar",
+        "maior_menor",
+        "conversao"
+
+    ];
+
+    const categoria =
+        escolha(categorias);
+
+
+    switch (categoria) {
+
+        case "soma":
+            return gerarSoma();
+
+        case "subtracao":
+            return gerarSubtracao();
+
+        case "multiplicacao":
+            return gerarMultiplicacao();
+
+        case "divisao":
+            return gerarDivisao();
+
+        case "porcentagem":
+            return gerarPorcentagem();
+
+        case "potencia":
+            return gerarPotencia();
+
+        case "equacao":
+            return gerarEquacao();
+
+        case "sequencia":
+            return gerarSequencia();
+
+        case "charada":
+            return gerarCharada();
+
+        case "verdadeiro_falso":
+            return gerarVerdadeiroFalso();
+
+        case "quiz":
+            return gerarQuiz();
+
+        case "palavras":
+            return gerarAdivinhePalavra();
+
+        case "par_impar":
+            return gerarParOuImpar();
+
+        case "maior_menor":
+            return gerarMaiorMenor();
+
+        case "conversao":
+            return gerarConversao();
+
+        default:
+            return gerarSoma();
+    }
+}
+
 
 /*
 =========================================================
@@ -765,6 +1351,12 @@ module.exports = {
     gerarMaiorMenor,
     gerarConversao,
 
+    /*
+    NOVO:
+    */
+
+    gerarDesafio,
+
     embaralhar,
 
     resetarCategoria(categoria) {
@@ -773,4 +1365,5 @@ module.exports = {
 
         salvarUsadas();
     }
+
 };
