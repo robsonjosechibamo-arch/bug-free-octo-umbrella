@@ -1,27 +1,30 @@
 // ============================================================
-// GUARDA-CHUVA BOT - MINECRAFT.JS V2
-// Gerador de Addons Minecraft Bedrock
+// GUARDA-CHUVA BOT
+// minecraft.js V3
 //
-// Suporte:
+// GERADOR MINECRAFT BEDROCK
+//
+// Suporta:
 //   - Itens
+//   - Espadas / ferramentas
+//   - Attachables
+//   - Texturas de itens
 //   - Blocos
+//   - Texturas de blocos
 //   - Mobs / entidades
 //   - Spawn Eggs
-//   - Texturas PNG reais
-//   - Modelos de entidades
 //   - Render Controllers
-//   - Resource Pack
+//   - Modelos
 //   - Behavior Pack
-//   - .mcpack
-//   - .mcaddon
+//   - Resource Pack
+//   - MCPACK
+//   - MCADDON
 //
-// Alvo do projeto: Minecraft Bedrock 1.26.36.5
 // ============================================================
 
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const zlib = require("zlib");
 const archiver = require("archiver");
 
 const MINECRAFT_VERSION = "1.26.36.5";
@@ -40,42 +43,49 @@ function uuid() {
     return crypto.randomUUID();
 }
 
-function slug(texto) {
-    return String(texto)
+function slug(text) {
+    return String(text || "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_+|_+$/g, "")
-        .slice(0, 40) || "addon";
+        .slice(0, 48) || "addon";
 }
 
-function escrever(arquivo, dados) {
-    fs.mkdirSync(path.dirname(arquivo), {
+function writeJSON(file, data) {
+    fs.mkdirSync(path.dirname(file), {
         recursive: true
     });
 
-    if (typeof dados === "string") {
-        fs.writeFileSync(arquivo, dados, "utf8");
-    } else {
-        fs.writeFileSync(
-            arquivo,
-            JSON.stringify(dados, null, 2),
-            "utf8"
-        );
-    }
+    fs.writeFileSync(
+        file,
+        JSON.stringify(data, null, 2),
+        "utf8"
+    );
+}
+
+function writeText(file, data) {
+    fs.mkdirSync(path.dirname(file), {
+        recursive: true
+    });
+
+    fs.writeFileSync(
+        file,
+        data,
+        "utf8"
+    );
 }
 
 
 // ============================================================
-// PNG GERADO PELO PRÓPRIO NODE.JS
+// PNG
 // ============================================================
 //
-// Não dependemos de outra biblioteca de imagem.
-// Criamos um PNG RGBA válido diretamente.
-//
-// Isso evita o problema das texturas quebradas/inválidas.
+// Gera PNG RGBA válido sem depender de imagem externa.
 // ============================================================
+
+const zlib = require("zlib");
 
 function crc32(buffer) {
     let crc = 0xffffffff;
@@ -93,93 +103,104 @@ function crc32(buffer) {
     return (crc ^ 0xffffffff) >>> 0;
 }
 
-function pngChunk(tipo, dados) {
-    const tipoBuffer = Buffer.from(tipo);
-    const tamanho = Buffer.alloc(4);
+function pngChunk(type, data) {
+    const typeBuffer = Buffer.from(type);
+    const length = Buffer.alloc(4);
 
-    tamanho.writeUInt32BE(dados.length, 0);
+    length.writeUInt32BE(data.length, 0);
 
     const crc = Buffer.alloc(4);
 
     crc.writeUInt32BE(
         crc32(
             Buffer.concat([
-                tipoBuffer,
-                dados
+                typeBuffer,
+                data
             ])
         ),
         0
     );
 
     return Buffer.concat([
-        tamanho,
-        tipoBuffer,
-        dados,
+        length,
+        typeBuffer,
+        data,
         crc
     ]);
 }
 
-function criarPNG(
-    arquivo,
-    corPrincipal = [40, 120, 255],
-    corSecundaria = [10, 30, 100]
-) {
-    const largura = 16;
-    const altura = 16;
+function createPNG(file, primary, secondary) {
 
-    const linhas = [];
+    const width = 32;
+    const height = 32;
 
-    for (let y = 0; y < altura; y++) {
-        const linha = Buffer.alloc(
-            1 + largura * 4
+    const rows = [];
+
+    for (let y = 0; y < height; y++) {
+
+        const row = Buffer.alloc(
+            1 + width * 4
         );
 
-        linha[0] = 0;
+        row[0] = 0;
 
-        for (let x = 0; x < largura; x++) {
+        for (let x = 0; x < width; x++) {
 
-            let cor = corPrincipal;
+            let color = primary;
 
-            // Bordas
+            // borda
             if (
                 x === 0 ||
                 y === 0 ||
-                x === largura - 1 ||
-                y === altura - 1
+                x === width - 1 ||
+                y === height - 1
             ) {
-                cor = corSecundaria;
+                color = secondary;
             }
 
-            // Padrão diagonal
-            if ((x + y) % 5 === 0) {
-                cor = corSecundaria;
+            // desenho simples
+            if (
+                x > 12 &&
+                x < 19
+            ) {
+                color = secondary;
             }
 
-            const pos = 1 + x * 4;
+            if (
+                y > 5 &&
+                y < 27 &&
+                x > 14 &&
+                x < 17
+            ) {
+                color = primary;
+            }
 
-            linha[pos] = cor[0];
-            linha[pos + 1] = cor[1];
-            linha[pos + 2] = cor[2];
-            linha[pos + 3] = 255;
+            const p = 1 + x * 4;
+
+            row[p] = color[0];
+            row[p + 1] = color[1];
+            row[p + 2] = color[2];
+            row[p + 3] = 255;
         }
 
-        linhas.push(linha);
+        rows.push(row);
     }
 
-    const raw = Buffer.concat(linhas);
+    const raw = Buffer.concat(rows);
 
-    const header = Buffer.alloc(13);
+    const ihdr = Buffer.alloc(13);
 
-    header.writeUInt32BE(largura, 0);
-    header.writeUInt32BE(altura, 4);
+    ihdr.writeUInt32BE(width, 0);
+    ihdr.writeUInt32BE(height, 4);
 
-    header[8] = 8;
-    header[9] = 6;
-    header[10] = 0;
-    header[11] = 0;
-    header[12] = 0;
+    ihdr[8] = 8;
+    ihdr[9] = 6;
+    ihdr[10] = 0;
+    ihdr[11] = 0;
+    ihdr[12] = 0;
 
     const png = Buffer.concat([
+
         Buffer.from([
             137, 80, 78, 71,
             13, 10, 26, 10
@@ -187,7 +208,7 @@ function criarPNG(
 
         pngChunk(
             "IHDR",
-            header
+            ihdr
         ),
 
         pngChunk(
@@ -202,14 +223,14 @@ function criarPNG(
     ]);
 
     fs.mkdirSync(
-        path.dirname(arquivo),
+        path.dirname(file),
         {
             recursive: true
         }
     );
 
     fs.writeFileSync(
-        arquivo,
+        file,
         png
     );
 }
@@ -219,19 +240,19 @@ function criarPNG(
 // CORES
 // ============================================================
 
-function escolherCores(texto) {
+function colorsFromText(text) {
 
-    const t = texto.toLowerCase();
+    const t = text.toLowerCase();
 
     if (
         t.includes("vermelho") ||
         t.includes("red")
     ) {
         return {
-            principal: [220, 30, 30],
-            secundaria: [90, 5, 5],
-            egg1: "#c91f1f",
-            egg2: "#5c0909"
+            primary: [220, 25, 25],
+            secondary: [90, 5, 5],
+            egg1: "#dc1919",
+            egg2: "#5a0505"
         };
     }
 
@@ -240,10 +261,10 @@ function escolherCores(texto) {
         t.includes("blue")
     ) {
         return {
-            principal: [30, 100, 230],
-            secundaria: [5, 30, 100],
-            egg1: "#2464d8",
-            egg2: "#071f66"
+            primary: [30, 100, 235],
+            secondary: [5, 30, 100],
+            egg1: "#1e64eb",
+            egg2: "#051e64"
         };
     }
 
@@ -252,10 +273,10 @@ function escolherCores(texto) {
         t.includes("green")
     ) {
         return {
-            principal: [30, 190, 70],
-            secundaria: [5, 80, 25],
-            egg1: "#28b84a",
-            egg2: "#07541d"
+            primary: [25, 190, 70],
+            secondary: [5, 75, 25],
+            egg1: "#19be46",
+            egg2: "#054b19"
         };
     }
 
@@ -264,10 +285,10 @@ function escolherCores(texto) {
         t.includes("yellow")
     ) {
         return {
-            principal: [240, 210, 30],
-            secundaria: [130, 100, 5],
-            egg1: "#e6c82c",
-            egg2: "#75620b"
+            primary: [240, 210, 25],
+            secondary: [120, 90, 5],
+            egg1: "#f0d219",
+            egg2: "#785a05"
         };
     }
 
@@ -276,10 +297,10 @@ function escolherCores(texto) {
         t.includes("purple")
     ) {
         return {
-            principal: [150, 40, 220],
-            secundaria: [65, 10, 100],
-            egg1: "#9634d1",
-            egg2: "#3f0962"
+            primary: [150, 40, 220],
+            secondary: [60, 10, 90],
+            egg1: "#9628dc",
+            egg2: "#3c0a5a"
         };
     }
 
@@ -288,9 +309,9 @@ function escolherCores(texto) {
         t.includes("black")
     ) {
         return {
-            principal: [35, 35, 35],
-            secundaria: [5, 5, 5],
-            egg1: "#252525",
+            primary: [35, 35, 35],
+            secondary: [5, 5, 5],
+            egg1: "#232323",
             egg2: "#050505"
         };
     }
@@ -300,16 +321,16 @@ function escolherCores(texto) {
         t.includes("white")
     ) {
         return {
-            principal: [230, 230, 230],
-            secundaria: [130, 130, 130],
-            egg1: "#eeeeee",
-            egg2: "#777777"
+            primary: [235, 235, 235],
+            secondary: [130, 130, 130],
+            egg1: "#ebebeb",
+            egg2: "#828282"
         };
     }
 
     return {
-        principal: [40, 120, 255],
-        secundaria: [10, 30, 100],
+        primary: [40, 120, 255],
+        secondary: [10, 30, 100],
         egg1: "#2878ff",
         egg2: "#0a1e64"
     };
@@ -317,161 +338,133 @@ function escolherCores(texto) {
 
 
 // ============================================================
-// INTERPRETAÇÃO
+// INTERPRETADOR
 // ============================================================
 
-function interpretar(descricao) {
+function parseDescription(description) {
 
-    const texto =
-        String(descricao)
+    const text =
+        String(description || "")
             .toLowerCase();
 
-    const resultado = {
+    const result = {
 
-        entidade: false,
         item: false,
-        bloco: false,
+        weapon: false,
+        block: false,
+        entity: false,
 
-        voa: false,
-        fogo: false,
-        rapido: false,
-        forte: false,
+        flying: false,
+        fire: false,
+        fast: false,
 
-        vida: 20,
-        dano: 4
+        health: 20,
+        damage: 4
     };
 
-    // ---------------- ENTIDADE ----------------
+
+    // ITEM
 
     if (
-        /drag[aã]o|mob|monstro|criatura|entidade|alien|zumbi|boss|animal|rob[oô]|golem|dem[oô]nio|cavaleiro/.test(texto)
+        /item|espada|espadas|machado|picareta|pá|pa |enxada|arco|arma|varinha|cristal|anel/.test(text)
     ) {
-        resultado.entidade = true;
+        result.item = true;
     }
 
-    // ---------------- ITEM ----------------
+
+    // ARMAS
 
     if (
-        /item|espada|machado|picareta|pá|pa |enxada|arco|arma|cristal|comida|poção|pocao|varinha/.test(texto)
+        /espada|machado|arma|arco|varinha/.test(text)
     ) {
-        resultado.item = true;
+        result.weapon = true;
     }
 
-    // ---------------- BLOCO ----------------
+
+    // BLOCO
 
     if (
-        /bloco|block|min[eé]rio|ore|pedra|cristal bloco/.test(texto)
+        /bloco|block|minério|minero|minério|pedra|cristal bloco/.test(text)
     ) {
-        resultado.bloco = true;
+        result.block = true;
     }
 
-    // ---------------- VOO ----------------
+
+    // MOB
 
     if (
-        /voa|voar|voando|voador|voe/.test(texto)
+        /dragão|dragao|mob|monstro|criatura|entidade|zumbi|boss|animal|alien|golem|demônio|demonio|robô|robo|cavaleiro/.test(text)
     ) {
-        resultado.voa = true;
+        result.entity = true;
     }
 
-    // ---------------- FOGO ----------------
+
+    // VOAR
 
     if (
-        /fogo|fire|chama|queima|queimar|lava/.test(texto)
+        /voa|voar|voando|voador|voe/.test(text)
     ) {
-        resultado.fogo = true;
+        result.flying = true;
     }
 
-    // ---------------- VELOCIDADE ----------------
+
+    // FOGO
 
     if (
-        /rápido|rapido|veloz|velocidade/.test(texto)
+        /fogo|fire|chama|queima|queimar|lava/.test(text)
     ) {
-        resultado.rapido = true;
+        result.fire = true;
     }
 
-    // ---------------- FORÇA ----------------
+
+    // VELOCIDADE
 
     if (
-        /forte|força|forca|poderoso|poderosa/.test(texto)
+        /rápido|rapido|veloz|velocidade/.test(text)
     ) {
-        resultado.forte = true;
-        resultado.dano = 12;
+        result.fast = true;
     }
 
-    // ---------------- VIDA ----------------
 
-    const vida =
-        texto.match(
+    // VIDA
+
+    const healthMatch =
+        text.match(
             /(\d+)\s*(?:de\s*)?(?:vida|vidas|hp)/
         );
 
-    if (vida) {
-        resultado.vida =
+    if (healthMatch) {
+        result.health =
             Math.max(
                 1,
                 Math.min(
                     100000,
-                    Number(vida[1])
+                    Number(healthMatch[1])
                 )
             );
     }
 
-    // ---------------- DANO ----------------
 
-    const dano =
-        texto.match(
+    // DANO
+
+    const damageMatch =
+        text.match(
             /(\d+)\s*(?:de\s*)?(?:dano|damage)/
         );
 
-    if (dano) {
-        resultado.dano =
+    if (damageMatch) {
+        result.damage =
             Math.max(
                 1,
                 Math.min(
                     10000,
-                    Number(dano[1])
+                    Number(damageMatch[1])
                 )
             );
     }
 
-    return resultado;
-}
 
-
-// ============================================================
-// MANIFEST RP
-// ============================================================
-
-function manifestRP(nome, uuidRP) {
-
-    return {
-        format_version: 2,
-
-        header: {
-            name:
-                `${nome} - Recursos`,
-
-            description:
-                `Resource Pack ${MINECRAFT_VERSION}`,
-
-            uuid:
-                uuidRP,
-
-            version:
-                [1, 0, 0],
-
-            min_engine_version:
-                [1, 21, 0]
-        },
-
-        modules: [
-            {
-                type: "resources",
-                uuid: uuid(),
-                version: [1, 0, 0]
-            }
-        ]
-    };
+    return result;
 }
 
 
@@ -479,24 +472,26 @@ function manifestRP(nome, uuidRP) {
 // MANIFEST BP
 // ============================================================
 
-function manifestBP(
-    nome,
-    uuidBP,
-    uuidRP
+function createBPManifest(
+    name,
+    bpUUID,
+    rpUUID
 ) {
 
     return {
+
         format_version: 2,
 
         header: {
+
             name:
-                `${nome} - Comportamento`,
+                `${name} - Behavior`,
 
             description:
-                `Behavior Pack ${MINECRAFT_VERSION}`,
+                `Addon gerado para Minecraft Bedrock ${MINECRAFT_VERSION}`,
 
             uuid:
-                uuidBP,
+                bpUUID,
 
             version:
                 [1, 0, 0],
@@ -506,17 +501,30 @@ function manifestBP(
         },
 
         modules: [
+
             {
-                type: "data",
-                uuid: uuid(),
-                version: [1, 0, 0]
+                description:
+                    "Behavior Pack",
+
+                type:
+                    "data",
+
+                uuid:
+                    uuid(),
+
+                version:
+                    [1, 0, 0]
             }
         ],
 
         dependencies: [
+
             {
-                uuid: uuidRP,
-                version: [1, 0, 0]
+                uuid:
+                    rpUUID,
+
+                version:
+                    [1, 0, 0]
             }
         ]
     };
@@ -524,26 +532,266 @@ function manifestBP(
 
 
 // ============================================================
-// MODELO DA ENTIDADE
+// MANIFEST RP
 // ============================================================
 
-function modeloEntidade(nome) {
+function createRPManifest(
+    name,
+    rpUUID
+) {
 
     return {
 
-        format_version: "1.12.0",
+        format_version: 2,
+
+        header: {
+
+            name:
+                `${name} - Resource`,
+
+            description:
+                `Addon gerado para Minecraft Bedrock ${MINECRAFT_VERSION}`,
+
+            uuid:
+                rpUUID,
+
+            version:
+                [1, 0, 0],
+
+            min_engine_version:
+                [1, 21, 0]
+        },
+
+        modules: [
+
+            {
+                description:
+                    "Resource Pack",
+
+                type:
+                    "resources",
+
+                uuid:
+                    uuid(),
+
+                version:
+                    [1, 0, 0]
+            }
+        ]
+    };
+}
+
+
+// ============================================================
+// ITEM
+// ============================================================
+
+function createItemBP(
+    identifier,
+    iconName,
+    isWeapon
+) {
+
+    const components = {
+
+        "minecraft:max_stack_size":
+            isWeapon ? 1 : 64,
+
+        "minecraft:icon": {
+
+            texture:
+                iconName
+        },
+
+        "minecraft:display_name": {
+
+            value:
+                identifier
+        }
+    };
+
+
+    // Dano para armas
+    if (isWeapon) {
+
+        components[
+            "minecraft:damage"
+        ] = 8;
+    }
+
+
+    return {
+
+        format_version:
+            "1.21.30",
+
+        "minecraft:item": {
+
+            description: {
+
+                identifier:
+
+                    identifier,
+
+                menu_category: {
+
+                    category:
+                        "items"
+                }
+            },
+
+            components:
+                components
+        }
+    };
+}
+
+
+// ============================================================
+// ITEM_TEXTURE.JSON
+// ============================================================
+
+function createItemTexture(
+    iconName,
+    texturePath
+) {
+
+    return {
+
+        resource_pack_name:
+            "GuardaChuva Resource Pack",
+
+        texture_name:
+            "atlas.items",
+
+        texture_data: {
+
+            [iconName]: {
+
+                textures:
+                    texturePath
+            }
+        }
+    };
+}
+
+
+// ============================================================
+// ATTACHABLE DO ITEM
+// ============================================================
+//
+// Esta é a correção principal para itens personalizados
+// que precisam aparecer corretamente quando segurados.
+//
+// ============================================================
+
+function createItemAttachable(
+    identifier,
+    textureName,
+    geometryName
+) {
+
+    return {
+
+        format_version:
+            "1.20.30",
+
+        "minecraft:attachable": {
+
+            description: {
+
+                identifier:
+                    identifier,
+
+                item: {
+
+                    [identifier]:
+                        "query.is_owner_identifier_any('minecraft:player')"
+                },
+
+                materials: {
+
+                    default:
+                        "entity",
+
+                    enchanted:
+                        "entity_alphatest_glint"
+                },
+
+                textures: {
+
+                    default:
+                        `textures/items/${textureName}`,
+
+                    enchanted:
+                        "textures/misc/enchanted_item_glint"
+                },
+
+                geometry: {
+
+                    default:
+                        geometryName
+                },
+
+                scripts: {
+
+                    animate: [
+
+                        {
+                            hold_first_person:
+                                "context.is_first_person == 1.0"
+                        },
+
+                        {
+                            hold_third_person:
+                                "context.is_first_person == 0.0"
+                        }
+                    ]
+                },
+
+                render_controllers: [
+
+                    "controller.render.item_default"
+                ]
+            }
+        }
+    };
+}
+
+
+// ============================================================
+// MODELO DO ITEM
+// ============================================================
+
+function createItemGeometry(
+    geometryName
+) {
+
+    return {
+
+        format_version:
+            "1.16.0",
 
         "minecraft:geometry": [
+
             {
+
                 description: {
+
                     identifier:
-                        `geometry.${nome}`,
+                        geometryName,
 
-                    texture_width: 64,
-                    texture_height: 64,
+                    texture_width:
+                        32,
 
-                    visible_bounds_width: 3,
-                    visible_bounds_height: 4,
+                    texture_height:
+                        32,
+
+                    visible_bounds_width:
+                        3,
+
+                    visible_bounds_height:
+                        4,
 
                     visible_bounds_offset:
                         [0, 1, 0]
@@ -552,13 +800,218 @@ function modeloEntidade(nome) {
                 bones: [
 
                     {
-                        name: "body",
+
+                        name:
+                            "bb_main",
+
+                        pivot:
+                            [0, 19, -6],
+
+                        rotation:
+                            [125, 0, 0],
+
+                        binding:
+                            "q.item_slot_to_bone_name(context.item_slot)",
+
+                        cubes: [
+
+                            {
+
+                                origin:
+                                    [-1, 9, -8],
+
+                                size:
+                                    [2, 18, 3],
+
+                                uv:
+                                    [0, 0]
+                            },
+
+                            {
+
+                                origin:
+                                    [-3, 27, -9],
+
+                                size:
+                                    [6, 4, 3],
+
+                                uv:
+                                    [8, 0]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+}
+
+
+// ============================================================
+// BLOCO BP
+// ============================================================
+
+function createBlockBP(identifier) {
+
+    return {
+
+        format_version:
+            "1.21.20",
+
+        "minecraft:block": {
+
+            description: {
+
+                identifier:
+                    identifier,
+
+                menu_category: {
+
+                    category:
+                        "construction"
+                }
+            },
+
+            components: {
+
+                "minecraft:destructible_by_mining": {
+
+                    seconds_to_destroy:
+                        1
+                },
+
+                "minecraft:destructible_by_explosion": {
+
+                    explosion_resistance:
+                        1
+                },
+
+                "minecraft:material_instances": {
+
+                    "*": {
+
+                        texture:
+                            "custom_block",
+
+                        render_method:
+                            "opaque"
+                    }
+                }
+            }
+        }
+    };
+}
+
+
+// ============================================================
+// TERRAIN TEXTURE
+// ============================================================
+
+function createTerrainTexture(
+    textureName
+) {
+
+    return {
+
+        resource_pack_name:
+            "GuardaChuva Resource Pack",
+
+        texture_name:
+            "atlas.terrain",
+
+        padding:
+            8,
+
+        num_mip_levels:
+            4,
+
+        texture_data: {
+
+            custom_block: {
+
+                textures:
+                    `textures/blocks/${textureName}`
+            }
+        }
+    };
+}
+
+
+// ============================================================
+// BLOCKS.JSON
+// ============================================================
+
+function createBlocksJSON() {
+
+    return {
+
+        format_version:
+            "1.19.30",
+
+        "guardachuva:custom_block": {
+
+            sound:
+                "stone",
+
+            textures:
+                "custom_block"
+        }
+    };
+}
+
+
+// ============================================================
+// MOB GEOMETRY
+// ============================================================
+
+function createMobGeometry(
+    geometryName
+) {
+
+    return {
+
+        format_version:
+            "1.16.0",
+
+        "minecraft:geometry": [
+
+            {
+
+                description: {
+
+                    identifier:
+                        geometryName,
+
+                    texture_width:
+                        64,
+
+                    texture_height:
+                        64,
+
+                    visible_bounds_width:
+                        3,
+
+                    visible_bounds_height:
+                        4,
+
+                    visible_bounds_offset:
+                        [0, 1, 0]
+                },
+
+                bones: [
+
+                    {
+
+                        name:
+                            "body",
 
                         pivot:
                             [0, 12, 0],
 
                         cubes: [
+
                             {
+
                                 origin:
                                     [-4, 4, -2],
 
@@ -572,13 +1025,17 @@ function modeloEntidade(nome) {
                     },
 
                     {
-                        name: "head",
+
+                        name:
+                            "head",
 
                         pivot:
                             [0, 16, 0],
 
                         cubes: [
+
                             {
+
                                 origin:
                                     [-4, 12, -4],
 
@@ -592,15 +1049,19 @@ function modeloEntidade(nome) {
                     },
 
                     {
-                        name: "right_leg",
+
+                        name:
+                            "leg_left",
 
                         pivot:
-                            [-2, 4, 0],
+                            [2, 4, 0],
 
                         cubes: [
+
                             {
+
                                 origin:
-                                    [-3, 0, -2],
+                                    [1, 0, -2],
 
                                 size:
                                     [3, 4, 4],
@@ -612,15 +1073,19 @@ function modeloEntidade(nome) {
                     },
 
                     {
-                        name: "left_leg",
+
+                        name:
+                            "leg_right",
 
                         pivot:
-                            [2, 4, 0],
+                            [-2, 4, 0],
 
                         cubes: [
+
                             {
+
                                 origin:
-                                    [2, 0, -2],
+                                    [-4, 0, -2],
 
                                 size:
                                     [3, 4, 4],
@@ -638,158 +1103,79 @@ function modeloEntidade(nome) {
 
 
 // ============================================================
-// RENDER CONTROLLER
+// MOB BP
 // ============================================================
 
-function renderController(nome) {
-
-    return {
-
-        format_version: "1.8.0",
-
-        render_controllers: {
-
-            [`controller.render.${nome}`]: {
-
-                geometry:
-                    "Geometry.default",
-
-                materials: [
-                    {
-                        "*":
-                            "Material.default"
-                    }
-                ],
-
-                textures: [
-                    "Texture.default"
-                ]
-            }
-        }
-    };
-}
-
-
-// ============================================================
-// CLIENT ENTITY
-// ============================================================
-
-function clientEntity(
-    id,
-    nome,
-    cores
-) {
-
-    return {
-
-        format_version: "1.10.0",
-
-        "minecraft:client_entity": {
-
-            description: {
-
-                identifier:
-                    id,
-
-                min_engine_version:
-                    "1.10.0",
-
-                materials: {
-
-                    default:
-                        "entity"
-                },
-
-                textures: {
-
-                    default:
-                        `textures/entity/${nome}`
-                },
-
-                geometry: {
-
-                    default:
-                        `geometry.${nome}`
-                },
-
-                render_controllers: [
-
-                    `controller.render.${nome}`
-                ],
-
-                spawn_egg: {
-
-                    base_color:
-                        cores.egg1,
-
-                    overlay_color:
-                        cores.egg2
-                }
-            }
-        }
-    };
-}
-
-
-// ============================================================
-// ENTIDADE BP
-// ============================================================
-
-function entidadeBP(
-    id,
+function createMobBP(
+    identifier,
     config
 ) {
 
-    const componentes = {
+    const components = {
 
         "minecraft:type_family": {
+
             family: [
                 "guardachuva_custom"
             ]
         },
 
         "minecraft:health": {
+
             value:
-                config.vida,
+                config.health,
 
             max:
-                config.vida
+                config.health
         },
 
         "minecraft:collision_box": {
-            width: 0.8,
-            height: 1.8
+
+            width:
+                0.8,
+
+            height:
+                1.8
         },
 
         "minecraft:physics": {},
 
+        "minecraft:nameable": {},
+
         "minecraft:movement": {
+
             value:
-                config.rapido
+                config.fast
                     ? 0.5
                     : 0.25
         },
 
         "minecraft:attack": {
+
             damage:
-                config.dano
+                config.damage
         },
 
-        "minecraft:nameable": {},
-
         "minecraft:behavior.float": {
-            priority: 0
+
+            priority:
+                0
         },
 
         "minecraft:behavior.nearest_attackable_target": {
 
-            priority: 2,
+            priority:
+                2,
 
-            must_see: true,
+            must_see:
+                true,
 
             entity_types: [
+
                 {
+
                     filters: {
+
                         test:
                             "is_family",
 
@@ -807,81 +1193,115 @@ function entidadeBP(
         },
 
         "minecraft:behavior.melee_attack": {
-            priority: 3,
-            track_target: true
+
+            priority:
+                3,
+
+            track_target:
+                true
         },
 
         "minecraft:behavior.random_stroll": {
-            priority: 6,
-            speed_multiplier: 1
+
+            priority:
+                6,
+
+            speed_multiplier:
+                1
         },
 
         "minecraft:behavior.look_at_player": {
-            priority: 7,
-            look_distance: 8,
-            probability: 0.02
+
+            priority:
+                7,
+
+            look_distance:
+                8,
+
+            probability:
+                0.02
         },
 
         "minecraft:behavior.random_look_around": {
-            priority: 8
+
+            priority:
+                8
         }
     };
 
-    // ---------------- VOO ----------------
 
-    if (config.voa) {
+    if (config.flying) {
 
-        componentes[
+        components[
             "minecraft:movement.fly"
         ] = {};
 
-        componentes[
+        components[
             "minecraft:navigation.fly"
         ] = {
-            can_path_over_water: true,
-            can_sink: false,
-            can_pass_doors: true
+
+            can_path_over_water:
+                true,
+
+            can_sink:
+                false,
+
+            can_pass_doors:
+                true
         };
 
-        componentes[
+        components[
             "minecraft:behavior.random_hover"
         ] = {
-            priority: 5,
-            duration: 4,
-            speed_multiplier: 1
+
+            priority:
+                5,
+
+            duration:
+                4,
+
+            speed_multiplier:
+                1
         };
     }
 
-    // ---------------- FOGO ----------------
 
-    if (config.fogo) {
+    if (config.fire) {
 
-        componentes[
+        components[
             "minecraft:fire_immune"
         ] = {};
 
-        componentes[
+        components[
             "minecraft:damage_sensor"
         ] = {
+
             triggers: [
+
                 {
-                    cause: "fire",
-                    deals_damage: false
+
+                    cause:
+                        "fire",
+
+                    deals_damage:
+                        false
                 }
             ]
         };
     }
 
+
     return {
 
-        format_version: "1.21.0",
+        format_version:
+            "1.21.0",
 
         "minecraft:entity": {
 
             description: {
 
                 identifier:
-                    id,
+                    identifier,
 
                 is_spawnable:
                     true,
@@ -891,28 +1311,130 @@ function entidadeBP(
             },
 
             components:
-                componentes
+                components
         }
     };
 }
 
 
 // ============================================================
-// SPAWN RULES
+// CLIENT ENTITY
 // ============================================================
 
-function spawnRules(id) {
+function createClientEntity(
+    identifier,
+    geometryName,
+    textureName,
+    colors
+) {
 
     return {
 
-        format_version: "1.21.0",
+        format_version:
+            "1.10.0",
+
+        "minecraft:client_entity": {
+
+            description: {
+
+                identifier:
+                    identifier,
+
+                min_engine_version:
+                    "1.10.0",
+
+                materials: {
+
+                    default:
+                        "entity"
+                },
+
+                textures: {
+
+                    default:
+                        `textures/entity/${textureName}`
+                },
+
+                geometry: {
+
+                    default:
+                        geometryName
+                },
+
+                render_controllers: [
+
+                    `controller.render.${textureName}`
+                ],
+
+                spawn_egg: {
+
+                    base_color:
+                        colors.egg1,
+
+                    overlay_color:
+                        colors.egg2
+                }
+            }
+        }
+    };
+}
+
+
+// ============================================================
+// RENDER CONTROLLER MOB
+// ============================================================
+
+function createMobRenderController(
+    name
+) {
+
+    return {
+
+        format_version:
+            "1.8.0",
+
+        render_controllers: {
+
+            [`controller.render.${name}`]: {
+
+                geometry:
+                    "Geometry.default",
+
+                materials: [
+
+                    {
+                        "*":
+                            "Material.default"
+                    }
+                ],
+
+                textures: [
+
+                    "Texture.default"
+                ]
+            }
+        }
+    };
+}
+
+
+// ============================================================
+// SPAWN RULE
+// ============================================================
+
+function createSpawnRules(identifier) {
+
+    return {
+
+        format_version:
+            "1.21.0",
 
         "minecraft:spawn_rules": {
 
             description: {
 
                 identifier:
-                    id,
+                    identifier,
 
                 population_control:
                     "animal"
@@ -921,24 +1443,29 @@ function spawnRules(id) {
             conditions: [
 
                 {
+
                     "minecraft:brightness_filter": {
 
-                        min: 0,
-                        max: 15,
+                        min:
+                            0,
 
-                        adjust_for_weather:
-                            false
+                        max:
+                            15
                     },
 
                     "minecraft:difficulty_filter": {
 
-                        min: "easy",
-                        max: "hard"
+                        min:
+                            "easy",
+
+                        max:
+                            "hard"
                     },
 
                     "minecraft:weight": {
 
-                        default: 5
+                        default:
+                            5
                     }
                 }
             ]
@@ -948,217 +1475,35 @@ function spawnRules(id) {
 
 
 // ============================================================
-// ITEM BP
+// ITEM RENDER CONTROLLER
 // ============================================================
 
-function itemBP(
-    id,
-    nome
-) {
-
-    return {
-
-        format_version: "1.21.0",
-
-        "minecraft:item": {
-
-            description: {
-
-                identifier:
-                    id,
-
-                menu_category: {
-
-                    category:
-                        "items"
-                }
-            },
-
-            components: {
-
-                "minecraft:max_stack_size":
-                    1,
-
-                "minecraft:icon": {
-
-                    texture:
-                        nome
-                },
-
-                "minecraft:display_name": {
-
-                    value:
-                        nome
-                }
-            }
-        }
-    };
-}
-
-
-// ============================================================
-// ITEM TEXTURE
-// ============================================================
-
-function itemTexture(nome) {
-
-    return {
-
-        resource_pack_name:
-            "guardachuva",
-
-        texture_name:
-            "atlas.items",
-
-        texture_data: {
-
-            [nome]: {
-
-                textures:
-                    `textures/items/${nome}`
-            }
-        }
-    };
-}
-
-
-// ============================================================
-// BLOCO BP
-// ============================================================
-
-function blocoBP(id) {
-
-    return {
-
-        format_version: "1.21.0",
-
-        "minecraft:block": {
-
-            description: {
-
-                identifier:
-                    id,
-
-                menu_category: {
-
-                    category:
-                        "construction"
-                }
-            },
-
-            components: {
-
-                "minecraft:destroy_time":
-                    1,
-
-                "minecraft:explosion_resistance":
-                    1
-            }
-        }
-    };
-}
-
-
-// ============================================================
-// TERRAIN TEXTURE
-// ============================================================
-
-function terrainTexture(nome) {
-
-    return {
-
-        resource_pack_name:
-            "guardachuva",
-
-        texture_name:
-            "atlas.terrain",
-
-        texture_data: {
-
-            [nome]: {
-
-                textures:
-                    `textures/blocks/${nome}`
-            }
-        }
-    };
-}
-
-
-// ============================================================
-// BLOCKS.JSON
-// ============================================================
-
-function blocksJSON(nome) {
-
-    return {
-
-        format_version: [
-            1,
-            1,
-            0
-        ],
-
-        [`guardachuva:${nome}_block`]: {
-
-            sound:
-                "stone",
-
-            textures:
-                nome
-        }
-    };
-}
-
-
-// ============================================================
-// RECEITA
-// ============================================================
-
-function receita(id) {
+function createItemRenderController() {
 
     return {
 
         format_version:
-            "1.20.10",
+            "1.8.0",
 
-        "minecraft:recipe_shaped": {
+        render_controllers: {
 
-            description: {
+            "controller.render.item_default": {
 
-                identifier:
-                    `${id}_recipe`
-            },
+                geometry:
+                    "Geometry.default",
 
-            tags: [
-                "crafting_table"
-            ],
+                materials: [
 
-            pattern: [
-                "AAA",
-                " B ",
-                " B "
-            ],
+                    {
+                        "*":
+                            "Material.default"
+                    }
+                ],
 
-            key: {
+                textures: [
 
-                A: {
-                    item:
-                        "minecraft:iron_ingot"
-                },
-
-                B: {
-                    item:
-                        "minecraft:stick"
-                }
-            },
-
-            result: {
-                item:
-                    id,
-
-                count:
-                    1
+                    "Texture.default"
+                ]
             }
         }
     };
@@ -1166,182 +1511,109 @@ function receita(id) {
 
 
 // ============================================================
-// CRIA PROJETO
+// CRIAR PROJETO
 // ============================================================
 
-function criarProjeto(descricao) {
+function createProject(description) {
 
     const config =
-        interpretar(descricao);
+        parseDescription(description);
 
-    const cores =
-        escolherCores(descricao);
+    const colors =
+        colorsFromText(description);
 
-    let nome =
-        String(descricao)
+    let cleanName =
+        String(description || "")
             .replace(/^\/mc\s*/i, "")
-            .trim()
-            .split(/\s+/)
-            .slice(0, 6)
-            .join(" ");
+            .trim();
 
-    if (!nome) {
-        nome = "Meu Addon";
+    if (!cleanName) {
+        cleanName =
+            "Meu Addon";
     }
 
-    const nomeSlug =
-        slug(nome);
+    const name =
+        cleanName
+            .split(/\s+/)
+            .slice(0, 8)
+            .join(" ");
 
-    const id =
-        `guardachuva:${nomeSlug}`;
+    const nameSlug =
+        slug(name);
 
-    const uuidBP =
+    const bpUUID =
         uuid();
 
-    const uuidRP =
+    const rpUUID =
         uuid();
 
-    const pasta =
+    const identifier =
+        `guardachuva:${nameSlug}`;
+
+    const projectDir =
         path.join(
             OUTPUT_DIR,
-            `${nomeSlug}_${Date.now()}`
+            `${nameSlug}_${Date.now()}`
         );
 
     const BP =
         path.join(
-            pasta,
-            `${nomeSlug}_BP`
+            projectDir,
+            `${nameSlug}_BP`
         );
 
     const RP =
         path.join(
-            pasta,
-            `${nomeSlug}_RP`
+            projectDir,
+            `${nameSlug}_RP`
         );
 
-    fs.mkdirSync(BP, {
-        recursive: true
-    });
 
-    fs.mkdirSync(RP, {
-        recursive: true
-    });
+    fs.mkdirSync(
+        BP,
+        {
+            recursive:
+                true
+        }
+    );
+
+    fs.mkdirSync(
+        RP,
+        {
+            recursive:
+                true
+        }
+    );
 
 
     // ========================================================
     // MANIFESTS
     // ========================================================
 
-    escrever(
+    writeJSON(
         path.join(
             BP,
             "manifest.json"
         ),
-        manifestBP(
-            nome,
-            uuidBP,
-            uuidRP
+
+        createBPManifest(
+            name,
+            bpUUID,
+            rpUUID
         )
     );
 
-    escrever(
+    writeJSON(
         path.join(
             RP,
             "manifest.json"
         ),
-        manifestRP(
-            nome,
-            uuidRP
+
+        createRPManifest(
+            name,
+            rpUUID
         )
     );
-
-
-    // ========================================================
-    // ENTIDADE
-    // ========================================================
-
-    if (config.entidade) {
-
-        escrever(
-            path.join(
-                BP,
-                "entities",
-                `${nomeSlug}.json`
-            ),
-            entidadeBP(
-                id,
-                config
-            )
-        );
-
-        escrever(
-            path.join(
-                BP,
-                "spawn_rules",
-                `${nomeSlug}.json`
-            ),
-            spawnRules(id)
-        );
-
-
-        // CLIENT ENTITY
-
-        escrever(
-            path.join(
-                RP,
-                "entity",
-                `${nomeSlug}.entity.json`
-            ),
-            clientEntity(
-                id,
-                nomeSlug,
-                cores
-            )
-        );
-
-
-        // MODELO
-
-        escrever(
-            path.join(
-                RP,
-                "models",
-                "entity",
-                `${nomeSlug}.geo.json`
-            ),
-            modeloEntidade(
-                nomeSlug
-            )
-        );
-
-
-        // RENDER CONTROLLER
-
-        escrever(
-            path.join(
-                RP,
-                "render_controllers",
-                `${nomeSlug}.render_controllers.json`
-            ),
-            renderController(
-                nomeSlug
-            )
-        );
-
-
-        // TEXTURA REAL
-
-        criarPNG(
-            path.join(
-                RP,
-                "textures",
-                "entity",
-                `${nomeSlug}.png`
-            ),
-            cores.principal,
-            cores.secundaria
-        );
-    }
 
 
     // ========================================================
@@ -1350,53 +1622,128 @@ function criarProjeto(descricao) {
 
     if (config.item) {
 
-        const itemId =
-            `guardachuva:${nomeSlug}_item`;
+        const itemIdentifier =
+            identifier;
 
-        escrever(
+        const itemName =
+            `${nameSlug}_item`;
+
+        const geometryName =
+            `geometry.${nameSlug}_item`;
+
+
+        // BP ITEM
+
+        writeJSON(
             path.join(
                 BP,
                 "items",
-                `${nomeSlug}_item.json`
+                `${itemName}.json`
             ),
-            itemBP(
-                itemId,
-                nomeSlug
+
+            createItemBP(
+                itemIdentifier,
+                `guardachuva:${itemName}`,
+                config.weapon
             )
         );
 
 
-        criarPNG(
+        // ICON TEXTURE
+
+        createPNG(
+
             path.join(
                 RP,
                 "textures",
                 "items",
-                `${nomeSlug}.png`
+                `${itemName}_ico.png`
             ),
-            cores.principal,
-            cores.secundaria
+
+            colors.primary,
+            colors.secondary
         );
 
 
-        escrever(
+        // HAND TEXTURE
+
+        createPNG(
+
+            path.join(
+                RP,
+                "textures",
+                "items",
+                `${itemName}.png`
+            ),
+
+            colors.primary,
+            colors.secondary
+        );
+
+
+        // ITEM TEXTURE CATALOG
+
+        writeJSON(
+
             path.join(
                 RP,
                 "textures",
                 "item_texture.json"
             ),
-            itemTexture(
-                nomeSlug
+
+            createItemTexture(
+                `guardachuva:${itemName}`,
+                `textures/items/${itemName}_ico`
             )
         );
 
 
-        escrever(
+        // ATTACHABLE
+
+        writeJSON(
+
             path.join(
-                BP,
-                "recipes",
-                `${nomeSlug}_recipe.json`
+                RP,
+                "attachables",
+                `${itemName}.player.json`
             ),
-            receita(itemId)
+
+            createItemAttachable(
+                itemIdentifier,
+                itemName,
+                geometryName
+            )
+        );
+
+
+        // GEOMETRIA
+
+        writeJSON(
+
+            path.join(
+                RP,
+                "models",
+                "entity",
+                `${itemName}.geo.json`
+            ),
+
+            createItemGeometry(
+                geometryName
+            )
+        );
+
+
+        // RENDER CONTROLLER
+
+        writeJSON(
+
+            path.join(
+                RP,
+                "render_controllers",
+                `${itemName}.render_controllers.json`
+            ),
+
+            createItemRenderController()
         );
     }
 
@@ -1405,159 +1752,273 @@ function criarProjeto(descricao) {
     // BLOCO
     // ========================================================
 
-    if (config.bloco) {
+    if (config.block) {
 
-        const blocoId =
-            `guardachuva:${nomeSlug}_block`;
+        const blockIdentifier =
+            `${identifier}_block`;
 
-        escrever(
+        const blockName =
+            `${nameSlug}_block`;
+
+
+        // BP
+
+        writeJSON(
+
             path.join(
                 BP,
                 "blocks",
-                `${nomeSlug}_block.json`
+                `${blockName}.json`
             ),
-            blocoBP(blocoId)
+
+            createBlockBP(
+                blockIdentifier
+            )
         );
 
 
-        criarPNG(
+        // TEXTURE
+
+        createPNG(
+
             path.join(
                 RP,
                 "textures",
                 "blocks",
-                `${nomeSlug}.png`
+                `${blockName}.png`
             ),
-            cores.principal,
-            cores.secundaria
+
+            colors.primary,
+            colors.secondary
         );
 
 
-        escrever(
+        // TERRAIN
+
+        writeJSON(
+
             path.join(
                 RP,
                 "textures",
                 "terrain_texture.json"
             ),
-            terrainTexture(
-                nomeSlug
+
+            createTerrainTexture(
+                blockName
             )
         );
 
 
-        escrever(
+        // BLOCKS.JSON
+
+        const blocksFile =
+            createBlocksJSON();
+
+        blocksFile[
+            blockIdentifier
+        ] = {
+
+            sound:
+                "stone",
+
+            textures:
+                "custom_block"
+        };
+
+        writeJSON(
+
             path.join(
                 RP,
                 "blocks.json"
             ),
-            blocksJSON(
-                nomeSlug
+
+            blocksFile
+        );
+    }
+
+
+    // ========================================================
+    // MOB
+    // ========================================================
+
+    if (config.entity) {
+
+        const entityIdentifier =
+            identifier;
+
+        const entityName =
+            nameSlug;
+
+        const geometryName =
+            `geometry.${entityName}`;
+
+        // BP ENTITY
+
+        writeJSON(
+
+            path.join(
+                BP,
+                "entities",
+                `${entityName}.json`
+            ),
+
+            createMobBP(
+                entityIdentifier,
+                config
+            )
+        );
+
+
+        // SPAWN RULE
+
+        writeJSON(
+
+            path.join(
+                BP,
+                "spawn_rules",
+                `${entityName}.json`
+            ),
+
+            createSpawnRules(
+                entityIdentifier
+            )
+        );
+
+
+        // CLIENT ENTITY
+
+        writeJSON(
+
+            path.join(
+                RP,
+                "entity",
+                `${entityName}.entity.json`
+            ),
+
+            createClientEntity(
+                entityIdentifier,
+                geometryName,
+                entityName,
+                colors
+            )
+        );
+
+
+        // GEOMETRIA
+
+        writeJSON(
+
+            path.join(
+                RP,
+                "models",
+                "entity",
+                `${entityName}.geo.json`
+            ),
+
+            createMobGeometry(
+                geometryName
+            )
+        );
+
+
+        // TEXTURA
+
+        createPNG(
+
+            path.join(
+                RP,
+                "textures",
+                "entity",
+                `${entityName}.png`
+            ),
+
+            colors.primary,
+            colors.secondary
+        );
+
+
+        // RENDER CONTROLLER
+
+        writeJSON(
+
+            path.join(
+                RP,
+                "render_controllers",
+                `${entityName}.render_controllers.json`
+            ),
+
+            createMobRenderController(
+                entityName
             )
         );
     }
 
 
     // ========================================================
-    // DIRETÓRIOS BÁSICOS
-    // ========================================================
-
-    fs.mkdirSync(
-        path.join(
-            RP,
-            "textures"
-        ),
-        {
-            recursive: true
-        }
-    );
-
-    fs.mkdirSync(
-        path.join(
-            RP,
-            "textures",
-            "items"
-        ),
-        {
-            recursive: true
-        }
-    );
-
-    fs.mkdirSync(
-        path.join(
-            RP,
-            "textures",
-            "blocks"
-        ),
-        {
-            recursive: true
-        }
-    );
-
-    fs.mkdirSync(
-        path.join(
-            RP,
-            "textures",
-            "entity"
-        ),
-        {
-            recursive: true
-        }
-    );
-
-
-    // ========================================================
     // INFO
     // ========================================================
 
-    escrever(
+    writeJSON(
+
         path.join(
-            pasta,
+            projectDir,
             "addon-info.json"
         ),
+
         {
-            nome:
-                nome,
 
-            descricao:
-                descricao,
+            name:
+                name,
 
-            minecraft:
+            description:
+                description,
+
+            minecraft_version:
                 MINECRAFT_VERSION,
 
-            uuid_bp:
-                uuidBP,
+            identifier:
+                identifier,
 
-            uuid_rp:
-                uuidRP,
+            behavior_pack_uuid:
+                bpUUID,
 
-            recursos:
+            resource_pack_uuid:
+                rpUUID,
+
+            features:
                 config,
 
-            criado_em:
+            created_at:
                 new Date().toISOString()
         }
     );
 
 
     return {
-        nome,
-        nomeSlug,
-        pasta,
+
+        name,
+        nameSlug,
+        identifier,
+
+        projectDir,
         BP,
         RP,
-        uuidBP,
-        uuidRP,
+
+        bpUUID,
+        rpUUID,
+
         config
     };
 }
 
 
 // ============================================================
-// ZIP / MCPACK
+// ZIP
 // ============================================================
 
-function criarZip(
-    pasta,
-    destino
+function zipFolder(
+    folder,
+    outputFile
 ) {
 
     return new Promise(
@@ -1565,7 +2026,7 @@ function criarZip(
 
             const output =
                 fs.createWriteStream(
-                    destino
+                    outputFile
                 );
 
             const archive =
@@ -1581,8 +2042,14 @@ function criarZip(
 
             output.on(
                 "close",
-                () => resolve(destino)
+                () => {
+
+                    resolve(
+                        outputFile
+                    );
+                }
             );
+
 
             output.on(
                 "error",
@@ -1594,12 +2061,15 @@ function criarZip(
                 reject
             );
 
+
             archive.pipe(output);
 
+
             archive.directory(
-                pasta,
+                folder,
                 false
             );
+
 
             archive.finalize();
         }
@@ -1611,10 +2081,10 @@ function criarZip(
 // MCADDON
 // ============================================================
 
-function criarMcaddon(
-    BPpack,
-    RPpack,
-    destino
+function createMcaddon(
+    bpPack,
+    rpPack,
+    outputFile
 ) {
 
     return new Promise(
@@ -1622,7 +2092,7 @@ function criarMcaddon(
 
             const output =
                 fs.createWriteStream(
-                    destino
+                    outputFile
                 );
 
             const archive =
@@ -1638,8 +2108,14 @@ function criarMcaddon(
 
             output.on(
                 "close",
-                () => resolve(destino)
+                () => {
+
+                    resolve(
+                        outputFile
+                    );
+                }
             );
+
 
             output.on(
                 "error",
@@ -1651,23 +2127,24 @@ function criarMcaddon(
                 reject
             );
 
+
             archive.pipe(output);
 
 
             archive.file(
-                BPpack,
+                bpPack,
                 {
                     name:
-                        path.basename(BPpack)
+                        path.basename(bpPack)
                 }
             );
 
 
             archive.file(
-                RPpack,
+                rpPack,
                 {
                     name:
-                        path.basename(RPpack)
+                        path.basename(rpPack)
                 }
             );
 
@@ -1679,107 +2156,111 @@ function criarMcaddon(
 
 
 // ============================================================
-// FUNÇÃO PRINCIPAL
+// GERADOR PRINCIPAL
 // ============================================================
 
 async function gerarAddon(
-    descricao
+    description
 ) {
 
     if (
-        !descricao ||
-        !String(descricao).trim()
+        !description ||
+        !String(description).trim()
     ) {
+
         throw new Error(
-            "A descrição do addon está vazia."
+            "Descreva o addon que deseja criar."
         );
     }
 
 
-    const projeto =
-        criarProjeto(
-            descricao
+    const project =
+        createProject(
+            description
         );
 
 
-    const BPpack =
+    const bpPack =
         path.join(
             OUTPUT_DIR,
-            `${projeto.nomeSlug}_BP.mcpack`
+            `${project.nameSlug}_BP.mcpack`
         );
 
 
-    const RPpack =
+    const rpPack =
         path.join(
             OUTPUT_DIR,
-            `${projeto.nomeSlug}_RP.mcpack`
+            `${project.nameSlug}_RP.mcpack`
         );
 
 
-    const arquivoFinal =
+    const mcaddon =
         path.join(
             OUTPUT_DIR,
-            `${projeto.nomeSlug}_${Date.now()}.mcaddon`
+            `${project.nameSlug}_${Date.now()}.mcaddon`
         );
 
 
-    // --------------------------------------------------------
     // BP
-    // --------------------------------------------------------
 
-    await criarZip(
-        projeto.BP,
-        BPpack
+    await zipFolder(
+        project.BP,
+        bpPack
     );
 
 
-    // --------------------------------------------------------
     // RP
-    // --------------------------------------------------------
 
-    await criarZip(
-        projeto.RP,
-        RPpack
+    await zipFolder(
+        project.RP,
+        rpPack
     );
 
 
-    // --------------------------------------------------------
     // MCADDON
-    // --------------------------------------------------------
 
-    await criarMcaddon(
-        BPpack,
-        RPpack,
-        arquivoFinal
+    await createMcaddon(
+        bpPack,
+        rpPack,
+        mcaddon
     );
 
 
     return {
 
+        sucesso:
+            true,
+
         nome:
-            projeto.nome,
-
-        arquivo:
-            arquivoFinal,
-
-        bp:
-            BPpack,
-
-        rp:
-            RPpack,
+            project.name,
 
         versao:
-            MINECRAFT_VERSION
+            MINECRAFT_VERSION,
+
+        arquivo:
+            mcaddon,
+
+        behavior_pack:
+            bpPack,
+
+        resource_pack:
+            rpPack,
+
+        pasta:
+            project.projectDir
     };
 }
 
 
 // ============================================================
-// EXPORTAÇÃO
+// EXPORT
 // ============================================================
 
 module.exports = {
+
     gerarAddon,
-    criarProjeto,
+
+    createProject,
+
     MINECRAFT_VERSION
 };
