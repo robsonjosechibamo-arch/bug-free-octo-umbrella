@@ -5,21 +5,20 @@
 // GERADOR MINECRAFT BEDROCK
 //
 // Suporte:
-//  - Itens
-//  - Espadas
-//  - Ferramentas
-//  - Ícones
-//  - Attachables
-//  - Geometrias
-//  - Texturas
-//  - Render Controllers
-//  - Blocos
-//  - Mobs
-//  - Spawn Eggs
-//  - Behavior Pack
-//  - Resource Pack
-//  - MCPACK
-//  - MCADDON
+// - Itens
+// - Espadas
+// - Ícones
+// - Attachables
+// - Geometrias
+// - Texturas
+// - Render Controllers
+// - Blocos
+// - Mobs
+// - Spawn Eggs
+// - Behavior Pack
+// - Resource Pack
+// - MCPACK
+// - MCADDON
 //
 // Compatibilidade alvo:
 // Minecraft Bedrock 1.26.x
@@ -71,145 +70,91 @@ function saveJSON(file, data) {
     );
 }
 
+function saveText(file, data) {
+    ensureDir(path.dirname(file));
+    fs.writeFileSync(file, data, "utf8");
+}
+
 
 // ============================================================
-// PNG RGBA
+// PNG
 // ============================================================
 
-function makePNG(file, width, height, draw) {
+function crc32(buffer) {
+    let crc = 0xffffffff;
+
+    for (let i = 0; i < buffer.length; i++) {
+        crc ^= buffer[i];
+
+        for (let j = 0; j < 8; j++) {
+            crc =
+                (crc >>> 1) ^
+                (0xedb88320 & -(crc & 1));
+        }
+    }
+
+    return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+    const typeBuffer = Buffer.from(type);
+
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length, 0);
+
+    const crc = Buffer.alloc(4);
+
+    crc.writeUInt32BE(
+        crc32(
+            Buffer.concat([
+                typeBuffer,
+                data
+            ])
+        ),
+        0
+    );
+
+    return Buffer.concat([
+        length,
+        typeBuffer,
+        data,
+        crc
+    ]);
+}
+
+function makePNG(file, draw, width = 32, height = 32) {
 
     const rows = [];
 
     for (let y = 0; y < height; y++) {
 
-        const row =
-            Buffer.alloc(
-                1 + width * 4
-            );
+        const row = Buffer.alloc(
+            1 + width * 4
+        );
 
         row[0] = 0;
 
         for (let x = 0; x < width; x++) {
 
-            const color =
-                draw(x, y) || [
-                    0,
-                    0,
-                    0,
-                    0
-                ];
+            const color = draw(x, y);
 
-            const p =
-                1 + x * 4;
+            const p = 1 + x * 4;
 
-            row[p] =
-                color[0];
-
-            row[p + 1] =
-                color[1];
-
-            row[p + 2] =
-                color[2];
-
-            row[p + 3] =
-                color[3];
+            row[p] = color[0];
+            row[p + 1] = color[1];
+            row[p + 2] = color[2];
+            row[p + 3] = color[3];
         }
 
         rows.push(row);
     }
 
-    const raw =
-        Buffer.concat(rows);
+    const raw = Buffer.concat(rows);
 
-    const table = [];
+    const ihdr = Buffer.alloc(13);
 
-    for (let n = 0; n < 256; n++) {
-
-        let c = n;
-
-        for (let k = 0; k < 8; k++) {
-
-            c =
-                (c & 1)
-                    ? (
-                        0xedb88320 ^
-                        (c >>> 1)
-                    )
-                    : (
-                        c >>> 1
-                    );
-        }
-
-        table[n] =
-            c >>> 0;
-    }
-
-    function crc32(buffer) {
-
-        let crc =
-            0xffffffff;
-
-        for (const value of buffer) {
-
-            crc =
-                table[
-                    (crc ^ value) & 255
-                ] ^
-                (crc >>> 8);
-        }
-
-        return (
-            crc ^
-            0xffffffff
-        ) >>> 0;
-    }
-
-    function chunk(type, data) {
-
-        const typeBuffer =
-            Buffer.from(type);
-
-        const length =
-            Buffer.alloc(4);
-
-        length.writeUInt32BE(
-            data.length,
-            0
-        );
-
-        const crc =
-            Buffer.alloc(4);
-
-        crc.writeUInt32BE(
-            crc32(
-                Buffer.concat([
-                    typeBuffer,
-                    data
-                ])
-            ),
-            0
-        );
-
-        return Buffer.concat([
-            length,
-            typeBuffer,
-            data,
-            crc
-        ]);
-    }
-
-    const ihdr =
-        Buffer.alloc(13);
-
-    ihdr.writeUInt32BE(
-        width,
-        0
-    );
-
-    ihdr.writeUInt32BE(
-        height,
-        4
-    );
+    ihdr.writeUInt32BE(width, 0);
+    ihdr.writeUInt32BE(height, 4);
 
     ihdr[8] = 8;
     ihdr[9] = 6;
@@ -217,49 +162,29 @@ function makePNG(file, width, height, draw) {
     ihdr[11] = 0;
     ihdr[12] = 0;
 
-    const png =
-        Buffer.concat([
+    const png = Buffer.concat([
 
-            Buffer.from([
-                137,
-                80,
-                78,
-                71,
-                13,
-                10,
-                26,
-                10
-            ]),
+        Buffer.from([
+            137, 80, 78, 71,
+            13, 10, 26, 10
+        ]),
 
-            chunk(
-                "IHDR",
-                ihdr
-            ),
+        pngChunk("IHDR", ihdr),
 
-            chunk(
-                "IDAT",
-                zlib.deflateSync(
-                    raw,
-                    {
-                        level: 9
-                    }
-                )
-            ),
+        pngChunk(
+            "IDAT",
+            zlib.deflateSync(raw)
+        ),
 
-            chunk(
-                "IEND",
-                Buffer.alloc(0)
-            )
-        ]);
+        pngChunk(
+            "IEND",
+            Buffer.alloc(0)
+        )
+    ]);
 
-    ensureDir(
-        path.dirname(file)
-    );
+    ensureDir(path.dirname(file));
 
-    fs.writeFileSync(
-        file,
-        png
-    );
+    fs.writeFileSync(file, png);
 }
 
 
@@ -269,425 +194,104 @@ function makePNG(file, width, height, draw) {
 
 function getColors(text) {
 
-    const t =
-        String(text)
-            .toLowerCase();
+    const t = String(text).toLowerCase();
 
-    if (
-        /vermelho|red/.test(t)
-    ) {
-
+    if (t.includes("vermelho") || t.includes("red")) {
         return {
-
-            main: [
-                225,
-                30,
-                30
-            ],
-
-            dark: [
-                90,
-                5,
-                5
-            ],
-
-            light: [
-                255,
-                100,
-                100
-            ],
-
-            base:
-                "#e11e1e",
-
-            overlay:
-                "#5a0505"
+            main: [225, 30, 30],
+            dark: [90, 5, 5],
+            light: [255, 110, 110],
+            base: "#e11e1e",
+            overlay: "#5a0505"
         };
     }
 
-    if (
-        /azul|blue/.test(t)
-    ) {
-
+    if (t.includes("azul") || t.includes("blue")) {
         return {
-
-            main: [
-                30,
-                100,
-                235
-            ],
-
-            dark: [
-                5,
-                30,
-                100
-            ],
-
-            light: [
-                100,
-                170,
-                255
-            ],
-
-            base:
-                "#1e64eb",
-
-            overlay:
-                "#051e64"
+            main: [30, 100, 235],
+            dark: [5, 30, 100],
+            light: [100, 180, 255],
+            base: "#1e64eb",
+            overlay: "#051e64"
         };
     }
 
-    if (
-        /verde|green/.test(t)
-    ) {
-
+    if (t.includes("verde") || t.includes("green")) {
         return {
-
-            main: [
-                30,
-                190,
-                70
-            ],
-
-            dark: [
-                5,
-                70,
-                25
-            ],
-
-            light: [
-                110,
-                255,
-                130
-            ],
-
-            base:
-                "#1ebe46",
-
-            overlay:
-                "#054619"
+            main: [30, 190, 70],
+            dark: [5, 70, 25],
+            light: [110, 255, 130],
+            base: "#1ebe46",
+            overlay: "#054619"
         };
     }
 
-    if (
-        /amarelo|yellow/.test(t)
-    ) {
-
+    if (t.includes("amarelo") || t.includes("yellow")) {
         return {
-
-            main: [
-                240,
-                205,
-                20
-            ],
-
-            dark: [
-                120,
-                85,
-                5
-            ],
-
-            light: [
-                255,
-                245,
-                100
-            ],
-
-            base:
-                "#f0cd14",
-
-            overlay:
-                "#785505"
+            main: [240, 205, 20],
+            dark: [120, 85, 5],
+            light: [255, 245, 100],
+            base: "#f0cd14",
+            overlay: "#785505"
         };
     }
 
-    if (
-        /roxo|purple/.test(t)
-    ) {
-
+    if (t.includes("roxo") || t.includes("purple")) {
         return {
+            main: [150, 45, 220],
+            dark: [60, 10, 90],
+            light: [220, 130, 255],
+            base: "#962ddc",
+            overlay: "#3c0a5a"
+        };
+    }
 
-            main: [
-                150,
-                45,
-                220
-            ],
+    if (t.includes("preto") || t.includes("black")) {
+        return {
+            main: [40, 40, 40],
+            dark: [5, 5, 5],
+            light: [140, 140, 140],
+            base: "#282828",
+            overlay: "#050505"
+        };
+    }
 
-            dark: [
-                60,
-                10,
-                90
-            ],
-
-            light: [
-                220,
-                130,
-                255
-            ],
-
-            base:
-                "#962ddc",
-
-            overlay:
-                "#3c0a5a"
+    if (t.includes("branco") || t.includes("white")) {
+        return {
+            main: [235, 235, 235],
+            dark: [125, 125, 125],
+            light: [255, 255, 255],
+            base: "#ebebeb",
+            overlay: "#7d7d7d"
         };
     }
 
     return {
-
-        main: [
-            40,
-            120,
-            255
-        ],
-
-        dark: [
-            10,
-            35,
-            100
-        ],
-
-        light: [
-            120,
-            180,
-            255
-        ],
-
-        base:
-            "#2878ff",
-
-        overlay:
-            "#0a2364"
+        main: [40, 120, 255],
+        dark: [10, 35, 100],
+        light: [120, 180, 255],
+        base: "#2878ff",
+        overlay: "#0a2364"
     };
 }
 
 
 // ============================================================
-// ÍCONE DO ITEM
+// ÍCONE DE ESPADA
 // ============================================================
 
 function makeItemIcon(file, colors) {
 
-    makePNG(
-        file,
-        32,
-        32,
-        (x, y) => {
-
-            let c = [
-                0,
-                0,
-                0,
-                0
-            ];
-
-            // lâmina
-            if (
-                x >= 13 &&
-                x <= 18 &&
-                y >= 3 &&
-                y <= 22
-            ) {
-
-                c = [
-                    colors.main[0],
-                    colors.main[1],
-                    colors.main[2],
-                    255
-                ];
-            }
-
-            // brilho
-            if (
-                x === 14 &&
-                y >= 4 &&
-                y <= 21
-            ) {
-
-                c = [
-                    colors.light[0],
-                    colors.light[1],
-                    colors.light[2],
-                    255
-                ];
-            }
-
-            // guarda
-            if (
-                y >= 23 &&
-                y <= 25 &&
-                x >= 8 &&
-                x <= 23
-            ) {
-
-                c = [
-                    colors.dark[0],
-                    colors.dark[1],
-                    colors.dark[2],
-                    255
-                ];
-            }
-
-            // cabo
-            if (
-                x >= 14 &&
-                x <= 17 &&
-                y >= 25 &&
-                y <= 30
-            ) {
-
-                c = [
-                    100,
-                    60,
-                    30,
-                    255
-                ];
-            }
-
-            // pomo
-            if (
-                y >= 29 &&
-                y <= 31 &&
-                x >= 12 &&
-                x <= 19
-            ) {
-
-                c = [
-                    colors.dark[0],
-                    colors.dark[1],
-                    colors.dark[2],
-                    255
-                ];
-            }
-
-            return c;
-        }
-    );
-}
-
-
-// ============================================================
-// TEXTURA DA ESPADA
-// ============================================================
-
-function makeSwordTexture(file, colors) {
-
-    makePNG(
-        file,
-        32,
-        32,
-        (x, y) => {
-
-            let c = [
-                0,
-                0,
-                0,
-                0
-            ];
-
-            // lâmina
-            if (
-                x >= 13 &&
-                x <= 18 &&
-                y >= 1 &&
-                y <= 22
-            ) {
-
-                c = [
-                    colors.main[0],
-                    colors.main[1],
-                    colors.main[2],
-                    255
-                ];
-            }
-
-            // ponta
-            if (
-                y >= 22 &&
-                y <= 24 &&
-                x >= 14 &&
-                x <= 17
-            ) {
-
-                c = [
-                    colors.main[0],
-                    colors.main[1],
-                    colors.main[2],
-                    255
-                ];
-            }
-
-            // brilho
-            if (
-                x === 14 &&
-                y >= 2 &&
-                y <= 21
-            ) {
-
-                c = [
-                    colors.light[0],
-                    colors.light[1],
-                    colors.light[2],
-                    255
-                ];
-            }
-
-            // guarda
-            if (
-                y >= 24 &&
-                y <= 26 &&
-                x >= 7 &&
-                x <= 24
-            ) {
-
-                c = [
-                    colors.dark[0],
-                    colors.dark[1],
-                    colors.dark[2],
-                    255
-                ];
-            }
-
-            // cabo
-            if (
-                x >= 14 &&
-                x <= 17 &&
-                y >= 27
-            ) {
-
-                c = [
-                    100,
-                    60,
-                    30,
-                    255
-                ];
-            }
-
-            return c;
-        }
-    );
-}
-// ============================================================
-// CONTINUAÇÃO: TEXTURA DA ESPADA
-// ============================================================
-
-function makeSwordTexture(file, colors) {
-
     makePNG(file, (x, y) => {
 
-        let c = [
-            0,
-            0,
-            0,
-            0
-        ];
+        let c = [0, 0, 0, 0];
 
-        // Lâmina principal
+        // lâmina diagonal
         if (
-            x >= 13 &&
+            x >= 12 &&
             x <= 18 &&
-            y >= 1 &&
-            y <= 22
+            y >= 2 &&
+            y <= 23
         ) {
             c = [
                 colors.main[0],
@@ -697,10 +301,10 @@ function makeSwordTexture(file, colors) {
             ];
         }
 
-        // Ponta
+        // ponta
         if (
-            y === 23 &&
-            x >= 14 &&
+            y === 24 &&
+            x >= 13 &&
             x <= 17
         ) {
             c = [
@@ -711,11 +315,11 @@ function makeSwordTexture(file, colors) {
             ];
         }
 
-        // Brilho da lâmina
+        // brilho
         if (
-            x === 14 &&
-            y >= 2 &&
-            y <= 21
+            x === 13 &&
+            y >= 3 &&
+            y <= 22
         ) {
             c = [
                 colors.light[0],
@@ -725,10 +329,10 @@ function makeSwordTexture(file, colors) {
             ];
         }
 
-        // Guarda
+        // guarda
         if (
-            y >= 24 &&
-            y <= 26 &&
+            y >= 25 &&
+            y <= 27 &&
             x >= 7 &&
             x <= 24
         ) {
@@ -740,24 +344,20 @@ function makeSwordTexture(file, colors) {
             ];
         }
 
-        // Cabo
+        // cabo
         if (
             x >= 14 &&
             x <= 17 &&
             y >= 27 &&
             y <= 30
         ) {
-            c = [
-                100,
-                60,
-                30,
-                255
-            ];
+            c = [100, 60, 30, 255];
         }
 
-        // Pomo
+        // pomo
         if (
-            y === 31 &&
+            y >= 30 &&
+            y <= 31 &&
             x >= 12 &&
             x <= 19
         ) {
@@ -775,6 +375,103 @@ function makeSwordTexture(file, colors) {
 
 
 // ============================================================
+// TEXTURA DA ESPADA
+// ============================================================
+
+function makeSwordTexture(file, colors) {
+
+    makePNG(file, (x, y) => {
+
+        let c = [0, 0, 0, 0];
+
+        // lâmina
+        if (
+            x >= 12 &&
+            x <= 19 &&
+            y >= 1 &&
+            y <= 22
+        ) {
+            c = [
+                colors.main[0],
+                colors.main[1],
+                colors.main[2],
+                255
+            ];
+        }
+
+        // ponta
+        if (
+            y === 23 &&
+            x >= 13 &&
+            x <= 18
+        ) {
+            c = [
+                colors.main[0],
+                colors.main[1],
+                colors.main[2],
+                255
+            ];
+        }
+
+        // brilho
+        if (
+            x === 13 &&
+            y >= 2 &&
+            y <= 21
+        ) {
+            c = [
+                colors.light[0],
+                colors.light[1],
+                colors.light[2],
+                255
+            ];
+        }
+
+        // segunda faixa de brilho
+        if (
+            x === 14 &&
+            y >= 3 &&
+            y <= 20
+        ) {
+            c = [
+                Math.min(255, colors.light[0] + 10),
+                Math.min(255, colors.light[1] + 10),
+                Math.min(255, colors.light[2] + 10),
+                255
+            ];
+        }
+
+        // guarda
+        if (
+            y >= 24 &&
+            y <= 26 &&
+            x >= 6 &&
+            x <= 25
+        ) {
+            c = [
+                colors.dark[0],
+                colors.dark[1],
+                colors.dark[2],
+                255
+            ];
+        }
+
+        // cabo
+        if (
+            x >= 14 &&
+            x <= 17 &&
+            y >= 27 &&
+            y <= 31
+        ) {
+            c = [100, 60, 30, 255];
+        }
+
+        return c;
+    });
+}
+
+
+// ============================================================
 // TEXTURA GENÉRICA
 // ============================================================
 
@@ -782,7 +479,6 @@ function makeGenericTexture(file, colors) {
 
     makePNG(file, (x, y) => {
 
-        // Borda
         if (
             x === 0 ||
             y === 0 ||
@@ -797,7 +493,6 @@ function makeGenericTexture(file, colors) {
             ];
         }
 
-        // Interior
         return [
             colors.main[0],
             colors.main[1],
@@ -809,14 +504,13 @@ function makeGenericTexture(file, colors) {
 
 
 // ============================================================
-// TEXTURA DO MOB
+// TEXTURA MOB
 // ============================================================
 
 function makeMobTexture(file, colors) {
 
     makePNG(file, (x, y) => {
 
-        // Cabeça
         if (
             x >= 8 &&
             x <= 23 &&
@@ -831,37 +525,6 @@ function makeMobTexture(file, colors) {
             ];
         }
 
-        // Olho esquerdo
-        if (
-            x >= 11 &&
-            x <= 13 &&
-            y >= 7 &&
-            y <= 9
-        ) {
-            return [
-                255,
-                255,
-                255,
-                255
-            ];
-        }
-
-        // Olho direito
-        if (
-            x >= 18 &&
-            x <= 20 &&
-            y >= 7 &&
-            y <= 9
-        ) {
-            return [
-                255,
-                255,
-                255,
-                255
-            ];
-        }
-
-        // Corpo
         if (
             x >= 7 &&
             x <= 24 &&
@@ -876,7 +539,6 @@ function makeMobTexture(file, colors) {
             ];
         }
 
-        // Perna esquerda
         if (
             x >= 8 &&
             x <= 13 &&
@@ -891,7 +553,6 @@ function makeMobTexture(file, colors) {
             ];
         }
 
-        // Perna direita
         if (
             x >= 18 &&
             x <= 23 &&
@@ -917,7 +578,7 @@ function makeMobTexture(file, colors) {
 
 
 // ============================================================
-// INTERPRETADOR DA DESCRIÇÃO
+// INTERPRETADOR
 // ============================================================
 
 function parseDescription(description) {
@@ -929,48 +590,25 @@ function parseDescription(description) {
     const result = {
 
         item: false,
-
         weapon: false,
-
         sword: false,
-
-        tool: false,
-
         block: false,
-
         mob: false,
 
-        spawnEgg: false,
-
         flying: false,
-
         fire: false,
-
         fast: false,
 
-        enchanted: false,
-
         health: 20,
-
         damage: 4
     };
 
-
-    // --------------------------------------------------------
-    // ITEM
-    // --------------------------------------------------------
-
     if (
-        /item|espada|machado|picareta|pa |pá |enxada|arco|arma|varinha|cristal|anel|comida/
+        /item|espada|machado|picareta|pá|pa |enxada|arco|arma|varinha|cristal|anel/
             .test(text)
     ) {
         result.item = true;
     }
-
-
-    // --------------------------------------------------------
-    // ARMAS
-    // --------------------------------------------------------
 
     if (
         /espada|arma|machado|arco|varinha/
@@ -979,35 +617,9 @@ function parseDescription(description) {
         result.weapon = true;
     }
 
-
-    // --------------------------------------------------------
-    // ESPADA
-    // --------------------------------------------------------
-
-    if (
-        /espada/
-            .test(text)
-    ) {
+    if (/espada/.test(text)) {
         result.sword = true;
     }
-
-
-    // --------------------------------------------------------
-    // FERRAMENTAS
-    // --------------------------------------------------------
-
-    if (
-        /picareta|machado|pá |pa |enxada/
-            .test(text)
-    ) {
-        result.tool = true;
-        result.item = true;
-    }
-
-
-    // --------------------------------------------------------
-    // BLOCO
-    // --------------------------------------------------------
 
     if (
         /bloco|block|minério|minerio|pedra|cristal bloco/
@@ -1016,11 +628,6 @@ function parseDescription(description) {
         result.block = true;
     }
 
-
-    // --------------------------------------------------------
-    // MOB
-    // --------------------------------------------------------
-
     if (
         /dragão|dragao|mob|monstro|criatura|entidade|zumbi|boss|animal|alien|golem|demônio|demonio|robo|robô|cavaleiro/
             .test(text)
@@ -1028,130 +635,60 @@ function parseDescription(description) {
         result.mob = true;
     }
 
-
-    // --------------------------------------------------------
-    // SPAWN EGG
-    // --------------------------------------------------------
-
     if (
-        /ovo|spawn egg|ovo de spawn|invocar|summon/
-            .test(text)
-    ) {
-        result.spawnEgg = true;
-    }
-
-
-    // Se for mob, gera spawn egg automaticamente
-    if (result.mob) {
-        result.spawnEgg = true;
-    }
-
-
-    // --------------------------------------------------------
-    // VOO
-    // --------------------------------------------------------
-
-    if (
-        /voa|voar|voando|voador|voe|voo/
+        /voa|voar|voando|voador|voe/
             .test(text)
     ) {
         result.flying = true;
     }
 
-
-    // --------------------------------------------------------
-    // FOGO
-    // --------------------------------------------------------
-
     if (
-        /fogo|fire|chama|queima|queimar|lava|flame/
+        /fogo|fire|chama|queima|queimar|lava/
             .test(text)
     ) {
         result.fire = true;
     }
 
-
-    // --------------------------------------------------------
-    // VELOCIDADE
-    // --------------------------------------------------------
-
     if (
-        /rápido|rapido|veloz|velocidade|speed/
+        /rápido|rapido|veloz|velocidade/
             .test(text)
     ) {
         result.fast = true;
     }
 
-
-    // --------------------------------------------------------
-    // ENCANTAMENTO
-    // --------------------------------------------------------
-
-    if (
-        /encantado|encantamento|enchant|mágico|magico/
-            .test(text)
-    ) {
-        result.enchanted = true;
-    }
-
-
-    // --------------------------------------------------------
-    // VIDA
-    // --------------------------------------------------------
-
-    const hp =
-        text.match(
-            /(\d+)\s*(?:de\s*)?(?:vida|vidas|hp)/
-        );
+    const hp = text.match(
+        /(\d+)\s*(?:de\s*)?(?:vida|vidas|hp)/
+    );
 
     if (hp) {
-
         result.health =
             Math.max(
                 1,
-                Math.min(
-                    100000,
-                    Number(hp[1])
-                )
+                Math.min(100000, Number(hp[1]))
             );
     }
 
-
-    // --------------------------------------------------------
-    // DANO
-    // --------------------------------------------------------
-
-    const dmg =
-        text.match(
-            /(\d+)\s*(?:de\s*)?(?:dano|damage)/
-        );
+    const dmg = text.match(
+        /(\d+)\s*(?:de\s*)?(?:dano|damage)/
+    );
 
     if (dmg) {
-
         result.damage =
             Math.max(
                 1,
-                Math.min(
-                    10000,
-                    Number(dmg[1])
-                )
+                Math.min(10000, Number(dmg[1]))
             );
     }
-
 
     return result;
 }
 
 
 // ============================================================
-// MANIFEST DO BEHAVIOR PACK
+// MANIFEST BP
 // ============================================================
 
-function makeBPManifest(
-    name,
-    bpUUID,
-    rpUUID
-) {
+function makeBPManifest(name, bpUUID, rpUUID) {
 
     return {
 
@@ -1172,33 +709,23 @@ function makeBPManifest(
                 [1, 0, 0],
 
             min_engine_version:
-                [1, 21, 0]
+                [1, 26, 0]
         },
 
         modules: [
 
             {
-
-                type:
-                    "data",
-
-                uuid:
-                    uuid(),
-
-                version:
-                    [1, 0, 0]
+                type: "data",
+                uuid: uuid(),
+                version: [1, 0, 0]
             }
         ],
 
         dependencies: [
 
             {
-
-                uuid:
-                    rpUUID,
-
-                version:
-                    [1, 0, 0]
+                uuid: rpUUID,
+                version: [1, 0, 0]
             }
         ]
     };
@@ -1206,13 +733,10 @@ function makeBPManifest(
 
 
 // ============================================================
-// MANIFEST DO RESOURCE PACK
+// MANIFEST RP
 // ============================================================
 
-function makeRPManifest(
-    name,
-    rpUUID
-) {
+function makeRPManifest(name, rpUUID) {
 
     return {
 
@@ -1233,21 +757,15 @@ function makeRPManifest(
                 [1, 0, 0],
 
             min_engine_version:
-                [1, 21, 0]
+                [1, 26, 0]
         },
 
         modules: [
 
             {
-
-                type:
-                    "resources",
-
-                uuid:
-                    uuid(),
-
-                version:
-                    [1, 0, 0]
+                type: "resources",
+                uuid: uuid(),
+                version: [1, 0, 0]
             }
         ]
     };
@@ -1256,95 +774,39 @@ function makeRPManifest(
 
 // ============================================================
 // ITEM BP
-//
-// CORREÇÃO IMPORTANTE:
-// minecraft:icon usa uma chave simples.
-//
-// Exemplo:
-//
-// "minecraft:icon": {
-//     "texture": "espada_vermelha"
-// }
-//
-// E item_texture.json usa exatamente:
-// "espada_vermelha": {
-//     "textures": "textures/items/espada_vermelha"
-// }
-//
-// Não usamos "guardachuva:espada_vermelha"
-// como chave do ícone.
 // ============================================================
 
-function makeItemBP(
-    identifier,
-    iconKey,
-    damage,
-    displayName,
-    isWeapon
-) {
+function makeItemBP(identifier, iconKey, damage) {
 
     const components = {
 
-        "minecraft:max_stack_size":
-            1,
+        "minecraft:max_stack_size": 1,
 
         "minecraft:icon": {
-
-            texture:
-                iconKey
+            texture: iconKey
         },
 
         "minecraft:display_name": {
-
-            value:
-                displayName
+            value: identifier
         }
     };
 
-
-    // --------------------------------------------------------
-    // Item equipado na mão
-    // --------------------------------------------------------
-
-    if (isWeapon) {
-
-        components[
-            "minecraft:hand_equipped"
-        ] = true;
+    if (damage > 0) {
+        components["minecraft:damage"] = damage;
     }
-
-
-    // --------------------------------------------------------
-    // Dano da arma
-    // --------------------------------------------------------
-
-    if (
-        isWeapon &&
-        damage > 0
-    ) {
-
-        components[
-            "minecraft:damage"
-        ] = damage;
-    }
-
 
     return {
 
-        format_version:
-            "1.21.30",
+        format_version: "1.21.30",
 
         "minecraft:item": {
 
             description: {
 
-                identifier:
-                    identifier,
+                identifier: identifier,
 
                 menu_category: {
-
-                    category:
-                        "items"
+                    category: "items"
                 }
             },
 
@@ -1355,21 +817,15 @@ function makeItemBP(
 
 
 // ============================================================
-// ITEM_TEXTURE.JSON
-//
-// A CHAVE precisa ser exatamente igual ao valor:
-// minecraft:icon.texture
+// ITEM TEXTURE
 // ============================================================
 
-function makeItemTextureJSON(
-    iconKey,
-    texturePath
-) {
+function makeItemTextureJSON(iconKey, texturePath) {
 
     return {
 
         resource_pack_name:
-            "Guarda-Chuva",
+            "Guarda-Chuva Resource Pack",
 
         texture_name:
             "atlas.items",
@@ -1387,39 +843,57 @@ function makeItemTextureJSON(
 
 
 // ============================================================
-// ITEM ICONS JSON
+// ATTACHABLE DA ESPADA
 //
-// Arquivo adicional para compatibilidade.
+// A correção importante está aqui:
+// - geometry aponta para a geometria criada
+// - textures aponta para a textura real
+// - render controller usa a geometria/material/textura
 // ============================================================
 
-function makeItemIconsJSON(
-    itemIdentifier,
-    iconKey
+function makeSwordAttachable(
+    identifier,
+    geometryName,
+    textureName
 ) {
 
     return {
 
-        resource_pack_name:
-            "Guarda-Chuva",
+        format_version: "1.20.30",
 
-        texture_name:
-            "atlas.items",
+        "minecraft:attachable": {
 
-        texture_data: {
+            description: {
 
-            [iconKey]: {
+                identifier: identifier,
 
-                textures:
-                    `textures/items/${iconKey}`
-            }
-        },
+                materials: {
 
-        items: {
+                    default: "entity",
 
-            [itemIdentifier]: {
+                    enchanted:
+                        "entity_alphatest_glint"
+                },
 
-                icon:
-                    iconKey
+                textures: {
+
+                    default:
+                        `textures/items/${textureName}`,
+
+                    enchanted:
+                        "textures/misc/enchanted_item_glint"
+                },
+
+                geometry: {
+
+                    default:
+                        geometryName
+                },
+
+                render_controllers: [
+
+                    "controller.render.guardachuva_item"
+                ]
             }
         }
     };
@@ -1427,20 +901,14 @@ function makeItemIconsJSON(
 
 
 // ============================================================
-// GEOMETRIA SIMPLES DA ESPADA
-//
-// Esta geometria fica disponível para futuras versões
-// que precisem de modelo personalizado.
+// GEOMETRIA DA ESPADA
 // ============================================================
 
-function makeSwordGeometry(
-    geometryName
-) {
+function makeSwordGeometry(geometryName) {
 
     return {
 
-        format_version:
-            "1.16.0",
+        format_version: "1.16.0",
 
         "minecraft:geometry": [
 
@@ -1451,17 +919,13 @@ function makeSwordGeometry(
                     identifier:
                         geometryName,
 
-                    texture_width:
-                        32,
+                    texture_width: 32,
 
-                    texture_height:
-                        32,
+                    texture_height: 32,
 
-                    visible_bounds_width:
-                        3,
+                    visible_bounds_width: 4,
 
-                    visible_bounds_height:
-                        4,
+                    visible_bounds_height: 4,
 
                     visible_bounds_offset:
                         [0, 1, 0]
@@ -1471,57 +935,41 @@ function makeSwordGeometry(
 
                     {
 
-                        name:
-                            "bb_main",
+                        name: "bb_main",
 
                         pivot:
-                            [0, 19, -6],
+                            [0, 8, 0],
 
                         cubes: [
 
                             {
-
                                 origin:
-                                    [-1, 9, -8],
+                                    [-1, -8, -1],
 
                                 size:
-                                    [2, 16, 3],
+                                    [2, 16, 2],
 
                                 uv:
                                     [0, 0]
                             },
 
                             {
-
                                 origin:
-                                    [-1, 25, -8],
+                                    [-2, 8, -1],
 
                                 size:
-                                    [2, 4, 3],
-
-                                uv:
-                                    [4, 0]
-                            },
-
-                            {
-
-                                origin:
-                                    [-4, 29, -8],
-
-                                size:
-                                    [8, 2, 3],
+                                    [4, 2, 2],
 
                                 uv:
                                     [8, 0]
                             },
 
                             {
-
                                 origin:
-                                    [-1, 31, -8],
+                                    [-1, 10, -1],
 
                                 size:
-                                    [2, 6, 3],
+                                    [2, 6, 2],
 
                                 uv:
                                     [18, 0]
@@ -1530,8 +978,12 @@ function makeSwordGeometry(
                     }
                 ]
             }
-        ] 
-        // ============================================================
+        ]
+    };
+}
+
+
+// ============================================================
 // RENDER CONTROLLER DO ITEM
 // ============================================================
 
@@ -1539,12 +991,11 @@ function makeItemRenderController() {
 
     return {
 
-        format_version:
-            "1.8.0",
+        format_version: "1.8.0",
 
         render_controllers: {
 
-            "controller.render.item_default": {
+            "controller.render.guardachuva_item": {
 
                 geometry:
                     "Geometry.default",
@@ -1555,11 +1006,9 @@ function makeItemRenderController() {
                         "*":
                             "Material.default"
                     }
-
                 ],
 
                 textures: [
-
                     "Texture.default"
                 ]
             }
@@ -1569,44 +1018,34 @@ function makeItemRenderController() {
 
 
 // ============================================================
-// BLOCO - BEHAVIOR PACK
+// BLOCO BP
 // ============================================================
 
-function makeBlockBP(
-    identifier
-) {
+function makeBlockBP(identifier) {
 
     return {
 
-        format_version:
-            "1.21.20",
+        format_version: "1.21.20",
 
         "minecraft:block": {
 
             description: {
 
-                identifier:
-                    identifier,
+                identifier: identifier,
 
                 menu_category: {
-
-                    category:
-                        "construction"
+                    category: "construction"
                 }
             },
 
             components: {
 
                 "minecraft:destructible_by_mining": {
-
-                    seconds_to_destroy:
-                        1
+                    seconds_to_destroy: 1
                 },
 
                 "minecraft:destructible_by_explosion": {
-
-                    explosion_resistance:
-                        1
+                    explosion_resistance: 1
                 },
 
                 "minecraft:geometry":
@@ -1633,9 +1072,7 @@ function makeBlockBP(
 // TERRAIN TEXTURE
 // ============================================================
 
-function makeTerrainTexture(
-    textureName
-) {
+function makeTerrainTexture(textureName) {
 
     return {
 
@@ -1645,11 +1082,9 @@ function makeTerrainTexture(
         texture_name:
             "atlas.terrain",
 
-        padding:
-            8,
+        padding: 8,
 
-        num_mip_levels:
-            4,
+        num_mip_levels: 4,
 
         texture_data: {
 
@@ -1667,19 +1102,15 @@ function makeTerrainTexture(
 // BLOCKS.JSON
 // ============================================================
 
-function makeBlocksJSON(
-    identifier
-) {
+function makeBlocksJSON(identifier) {
 
     return {
 
-        format_version:
-            "1.19.30",
+        format_version: "1.19.30",
 
         [identifier]: {
 
-            sound:
-                "stone",
+            sound: "stone",
 
             textures:
                 "custom_block"
@@ -1689,15 +1120,14 @@ function makeBlocksJSON(
 
 
 // ============================================================
-// GEOMETRIA DE BLOCO
+// GEOMETRIA DO BLOCO
 // ============================================================
 
 function makeBlockGeometry() {
 
     return {
 
-        format_version:
-            "1.12.0",
+        format_version: "1.12.0",
 
         "minecraft:geometry": [
 
@@ -1708,17 +1138,13 @@ function makeBlockGeometry() {
                     identifier:
                         "geometry.full_block",
 
-                    texture_width:
-                        16,
+                    texture_width: 16,
 
-                    texture_height:
-                        16,
+                    texture_height: 16,
 
-                    visible_bounds_width:
-                        2,
+                    visible_bounds_width: 2,
 
-                    visible_bounds_height:
-                        2,
+                    visible_bounds_height: 2,
 
                     visible_bounds_offset:
                         [0, 0.5, 0]
@@ -1728,8 +1154,7 @@ function makeBlockGeometry() {
 
                     {
 
-                        name:
-                            "bb_main",
+                        name: "bb_main",
 
                         pivot:
                             [0, 0, 0],
@@ -1760,14 +1185,11 @@ function makeBlockGeometry() {
 // MOB GEOMETRY
 // ============================================================
 
-function makeMobGeometry(
-    geometryName
-) {
+function makeMobGeometry(geometryName) {
 
     return {
 
-        format_version:
-            "1.16.0",
+        format_version: "1.16.0",
 
         "minecraft:geometry": [
 
@@ -1778,17 +1200,13 @@ function makeMobGeometry(
                     identifier:
                         geometryName,
 
-                    texture_width:
-                        64,
+                    texture_width: 64,
 
-                    texture_height:
-                        64,
+                    texture_height: 64,
 
-                    visible_bounds_width:
-                        2.5,
+                    visible_bounds_width: 2.5,
 
-                    visible_bounds_height:
-                        3.5,
+                    visible_bounds_height: 3.5,
 
                     visible_bounds_offset:
                         [0, 1, 0]
@@ -1796,14 +1214,8 @@ function makeMobGeometry(
 
                 bones: [
 
-                    // ----------------------------------------
-                    // CORPO
-                    // ----------------------------------------
-
                     {
-
-                        name:
-                            "body",
+                        name: "body",
 
                         pivot:
                             [0, 12, 0],
@@ -1811,7 +1223,6 @@ function makeMobGeometry(
                         cubes: [
 
                             {
-
                                 origin:
                                     [-4, 4, -2],
 
@@ -1824,14 +1235,8 @@ function makeMobGeometry(
                         ]
                     },
 
-                    // ----------------------------------------
-                    // CABEÇA
-                    // ----------------------------------------
-
                     {
-
-                        name:
-                            "head",
+                        name: "head",
 
                         pivot:
                             [0, 16, 0],
@@ -1839,7 +1244,6 @@ function makeMobGeometry(
                         cubes: [
 
                             {
-
                                 origin:
                                     [-4, 12, -4],
 
@@ -1852,14 +1256,8 @@ function makeMobGeometry(
                         ]
                     },
 
-                    // ----------------------------------------
-                    // PERNA ESQUERDA
-                    // ----------------------------------------
-
                     {
-
-                        name:
-                            "leg_left",
+                        name: "leg_left",
 
                         pivot:
                             [2, 4, 0],
@@ -1867,7 +1265,6 @@ function makeMobGeometry(
                         cubes: [
 
                             {
-
                                 origin:
                                     [1, 0, -2],
 
@@ -1880,14 +1277,8 @@ function makeMobGeometry(
                         ]
                     },
 
-                    // ----------------------------------------
-                    // PERNA DIREITA
-                    // ----------------------------------------
-
                     {
-
-                        name:
-                            "leg_right",
+                        name: "leg_right",
 
                         pivot:
                             [-2, 4, 0],
@@ -1895,7 +1286,6 @@ function makeMobGeometry(
                         cubes: [
 
                             {
-
                                 origin:
                                     [-4, 0, -2],
 
@@ -1908,14 +1298,8 @@ function makeMobGeometry(
                         ]
                     },
 
-                    // ----------------------------------------
-                    // BRAÇO ESQUERDO
-                    // ----------------------------------------
-
                     {
-
-                        name:
-                            "arm_left",
+                        name: "arm_left",
 
                         pivot:
                             [5, 13, 0],
@@ -1923,7 +1307,6 @@ function makeMobGeometry(
                         cubes: [
 
                             {
-
                                 origin:
                                     [4, 8, -2],
 
@@ -1936,14 +1319,8 @@ function makeMobGeometry(
                         ]
                     },
 
-                    // ----------------------------------------
-                    // BRAÇO DIREITO
-                    // ----------------------------------------
-
                     {
-
-                        name:
-                            "arm_right",
+                        name: "arm_right",
 
                         pivot:
                             [-5, 13, 0],
@@ -1951,7 +1328,6 @@ function makeMobGeometry(
                         cubes: [
 
                             {
-
                                 origin:
                                     [-7, 8, -2],
 
@@ -1971,13 +1347,10 @@ function makeMobGeometry(
 
 
 // ============================================================
-// MOB - BEHAVIOR PACK
+// MOB BP
 // ============================================================
 
-function makeMobBP(
-    identifier,
-    config
-) {
+function makeMobBP(identifier, config) {
 
     const components = {
 
@@ -1999,11 +1372,9 @@ function makeMobBP(
 
         "minecraft:collision_box": {
 
-            width:
-                0.8,
+            width: 0.8,
 
-            height:
-                1.8
+            height: 1.8
         },
 
         "minecraft:physics": {},
@@ -2013,9 +1384,7 @@ function makeMobBP(
         "minecraft:movement": {
 
             value:
-                config.fast
-                    ? 0.5
-                    : 0.25
+                config.fast ? 0.5 : 0.25
         },
 
         "minecraft:attack": {
@@ -2026,17 +1395,14 @@ function makeMobBP(
 
         "minecraft:behavior.float": {
 
-            priority:
-                0
+            priority: 0
         },
 
         "minecraft:behavior.nearest_attackable_target": {
 
-            priority:
-                2,
+            priority: 2,
 
-            must_see:
-                true,
+            must_see: true,
 
             entity_types: [
 
@@ -2054,53 +1420,39 @@ function makeMobBP(
                             "player"
                     },
 
-                    max_dist:
-                        32
+                    max_dist: 32
                 }
             ]
         },
 
         "minecraft:behavior.melee_attack": {
 
-            priority:
-                3,
+            priority: 3,
 
-            track_target:
-                true
+            track_target: true
         },
 
         "minecraft:behavior.random_stroll": {
 
-            priority:
-                6,
+            priority: 6,
 
-            speed_multiplier:
-                1
+            speed_multiplier: 1
         },
 
         "minecraft:behavior.look_at_player": {
 
-            priority:
-                7,
+            priority: 7,
 
-            look_distance:
-                8,
+            look_distance: 8,
 
-            probability:
-                0.02
+            probability: 0.02
         },
 
         "minecraft:behavior.random_look_around": {
 
-            priority:
-                8
+            priority: 8
         }
     };
-
-
-    // ========================================================
-    // MOB VOADOR
-    // ========================================================
 
     if (config.flying) {
 
@@ -2112,37 +1464,25 @@ function makeMobBP(
             "minecraft:navigation.fly"
         ] = {
 
-            can_path_over_water:
-                true,
+            can_path_over_water: true,
 
-            can_sink:
-                false,
+            can_sink: false,
 
-            can_pass_doors:
-                true
+            can_pass_doors: true
         };
 
         components[
             "minecraft:behavior.random_hover"
         ] = {
 
-            priority:
-                5,
+            priority: 5,
 
-            duration:
-                4,
+            duration: 4,
 
             speed_multiplier:
-                config.fast
-                    ? 1.5
-                    : 1
+                config.fast ? 1.5 : 1
         };
     }
-
-
-    // ========================================================
-    // IMUNIDADE AO FOGO
-    // ========================================================
 
     if (config.fire) {
 
@@ -2157,48 +1497,36 @@ function makeMobBP(
             triggers: [
 
                 {
-
-                    cause:
-                        "fire",
-
-                    deals_damage:
-                        false
+                    cause: "fire",
+                    deals_damage: false
                 },
 
                 {
-
-                    cause:
-                        "fire_tick",
-
-                    deals_damage:
-                        false
+                    cause: "fire_tick",
+                    deals_damage: false
                 }
             ]
         };
     }
 
-
     return {
 
-        format_version:
-            "1.21.30",
+        format_version: "1.21.30",
 
         "minecraft:entity": {
 
             description: {
 
                 identifier:
+
                     identifier,
 
-                is_spawnable:
-                    true,
+                is_spawnable: true,
 
-                is_summonable:
-                    true
+                is_summonable: true
             },
 
-            components:
-                components
+            components
         }
     };
 }
@@ -2217,14 +1545,14 @@ function makeClientEntity(
 
     return {
 
-        format_version:
-            "1.10.0",
+        format_version: "1.10.0",
 
         "minecraft:client_entity": {
 
             description: {
 
                 identifier:
+
                     identifier,
 
                 min_engine_version:
@@ -2271,14 +1599,11 @@ function makeClientEntity(
 // MOB RENDER CONTROLLER
 // ============================================================
 
-function makeMobRenderController(
-    name
-) {
+function makeMobRenderController(name) {
 
     return {
 
-        format_version:
-            "1.8.0",
+        format_version: "1.8.0",
 
         render_controllers: {
 
@@ -2290,14 +1615,12 @@ function makeMobRenderController(
                 materials: [
 
                     {
-
                         "*":
                             "Material.default"
                     }
                 ],
 
                 textures: [
-
                     "Texture.default"
                 ]
             }
@@ -2310,20 +1633,18 @@ function makeMobRenderController(
 // SPAWN RULES
 // ============================================================
 
-function makeSpawnRules(
-    identifier
-) {
+function makeSpawnRules(identifier) {
 
     return {
 
-        format_version:
-            "1.21.0",
+        format_version: "1.21.0",
 
         "minecraft:spawn_rules": {
 
             description: {
 
                 identifier:
+
                     identifier,
 
                 population_control:
@@ -2336,202 +1657,43 @@ function makeSpawnRules(
 
                     "minecraft:brightness_filter": {
 
-                        min:
-                            0,
+                        min: 0,
 
-                        max:
-                            15
+                        max: 15
                     },
 
                     "minecraft:difficulty_filter": {
 
-                        min:
-                            "easy",
+                        min: "easy",
 
-                        max:
-                            "hard"
+                        max: "hard"
                     },
 
                     "minecraft:weight": {
 
-                        default:
-                            5
+                        default: 5
                     }
                 }
             ]
         }
     };
-                        } 
-    
-    };
-    }
-// ============================================================
-// SPAWN EGG
-// ============================================================
-
-function makeSpawnEggTexture(
-    file,
-    colors
-) {
-
-    makePNG(file, (x, y) => {
-
-        // fundo transparente
-        let c = [
-            0,
-            0,
-            0,
-            0
-        ];
-
-        // ovo
-        const dx = x - 15.5;
-        const dy = y - 15.5;
-
-        if (
-            (dx * dx) / 120 +
-            (dy * dy) / 170 <= 1
-        ) {
-
-            c = [
-                colors.main[0],
-                colors.main[1],
-                colors.main[2],
-                255
-            ];
-        }
-
-        // parte clara
-        if (
-            x >= 11 &&
-            x <= 17 &&
-            y >= 7 &&
-            y <= 12
-        ) {
-
-            c = [
-                colors.light[0],
-                colors.light[1],
-                colors.light[2],
-                255
-            ];
-        }
-
-        // mancha
-        if (
-            x >= 18 &&
-            x <= 22 &&
-            y >= 17 &&
-            y <= 22
-        ) {
-
-            c = [
-                colors.dark[0],
-                colors.dark[1],
-                colors.dark[2],
-                255
-            ];
-        }
-
-        return c;
-    });
 }
 
 
 // ============================================================
-// TEXTURE PACK COMPLETA
-// ============================================================
-
-function makeItemTexturePack(
-    RP,
-    itemName,
-    itemIdentifier
-) {
-
-    const file =
-        path.join(
-            RP,
-            "textures",
-            "item_texture.json"
-        );
-
-    let data = {
-
-        resource_pack_name:
-            "Guarda-Chuva",
-
-        texture_name:
-            "atlas.items",
-
-        texture_data: {}
-    };
-
-    if (fs.existsSync(file)) {
-
-        try {
-
-            data =
-                JSON.parse(
-                    fs.readFileSync(
-                        file,
-                        "utf8"
-                    )
-                );
-
-        } catch {
-
-            data = {
-
-                resource_pack_name:
-                    "Guarda-Chuva",
-
-                texture_name:
-                    "atlas.items",
-
-                texture_data: {}
-            };
-        }
-    }
-
-    if (!data.texture_data) {
-
-        data.texture_data = {};
-    }
-
-    data.texture_data[itemIdentifier] = {
-
-        textures:
-            `textures/items/${itemName}_ico`
-    };
-
-    saveJSON(
-        file,
-        data
-    );
-}
-
-
-// ============================================================
-// CRIAR PROJETO COMPLETO
+// CRIAR PROJETO
 // ============================================================
 
 function createProject(description) {
 
     const config =
-        parseDescription(
-            description
-        );
+        parseDescription(description);
 
     const colors =
-        getColors(
-            description
-        );
+        getColors(description);
 
     const original =
-        String(
-            description || ""
-        ).trim();
-
+        String(description || "").trim();
 
     const clean =
         original
@@ -2541,35 +1703,27 @@ function createProject(description) {
             )
             .trim();
 
-
     const name =
         clean
             .split(/\s+/)
             .slice(0, 8)
-            .join(" ")
-            ||
-            "Meu Addon";
-
+            .join(" ") ||
+        "Meu Addon";
 
     const nameSlug =
         slug(name);
 
-
     const namespace =
         "guardachuva";
-
 
     const bpUUID =
         uuid();
 
-
     const rpUUID =
         uuid();
 
-
     const identifier =
         `${namespace}:${nameSlug}`;
-
 
     const projectDir =
         path.join(
@@ -2577,13 +1731,11 @@ function createProject(description) {
             `${nameSlug}_${Date.now()}`
         );
 
-
     const BP =
         path.join(
             projectDir,
             `${nameSlug}_BP`
         );
-
 
     const RP =
         path.join(
@@ -2591,22 +1743,16 @@ function createProject(description) {
             `${nameSlug}_RP`
         );
 
-
     ensureDir(BP);
     ensureDir(RP);
 
 
     // ========================================================
-    // MANIFEST BP
+    // MANIFESTS
     // ========================================================
 
     saveJSON(
-
-        path.join(
-            BP,
-            "manifest.json"
-        ),
-
+        path.join(BP, "manifest.json"),
         makeBPManifest(
             name,
             bpUUID,
@@ -2614,18 +1760,8 @@ function createProject(description) {
         )
     );
 
-
-    // ========================================================
-    // MANIFEST RP
-    // ========================================================
-
     saveJSON(
-
-        path.join(
-            RP,
-            "manifest.json"
-        ),
-
+        path.join(RP, "manifest.json"),
         makeRPManifest(
             name,
             rpUUID
@@ -2642,18 +1778,22 @@ function createProject(description) {
         const itemName =
             `${nameSlug}_item`;
 
-
         const itemIdentifier =
             `${namespace}:${itemName}`;
-
 
         const geometryName =
             `geometry.${itemName}`;
 
+        const iconKey =
+            itemName;
 
-        // ----------------------------------------------------
+        const itemTexture =
+            `${itemName}.png`;
+
+
+        // -----------------------------------------------
         // ITEM BP
-        // ----------------------------------------------------
+        // -----------------------------------------------
 
         saveJSON(
 
@@ -2664,8 +1804,11 @@ function createProject(description) {
             ),
 
             makeItemBP(
+
                 itemIdentifier,
-                itemIdentifier,
+
+                iconKey,
+
                 config.weapon
                     ? config.damage
                     : 0
@@ -2673,9 +1816,9 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
-        // TEXTURA DO ITEM
-        // ----------------------------------------------------
+        // -----------------------------------------------
+        // TEXTURA DA ESPADA/ITEM
+        // -----------------------------------------------
 
         if (config.sword) {
 
@@ -2685,7 +1828,7 @@ function createProject(description) {
                     RP,
                     "textures",
                     "items",
-                    `${itemName}.png`
+                    itemTexture
                 ),
 
                 colors
@@ -2699,7 +1842,7 @@ function createProject(description) {
                     RP,
                     "textures",
                     "items",
-                    `${itemName}.png`
+                    itemTexture
                 ),
 
                 colors
@@ -2707,9 +1850,9 @@ function createProject(description) {
         }
 
 
-        // ----------------------------------------------------
+        // -----------------------------------------------
         // ÍCONE
-        // ----------------------------------------------------
+        // -----------------------------------------------
 
         makeItemIcon(
 
@@ -2724,21 +1867,53 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
+        // -----------------------------------------------
         // ITEM_TEXTURE.JSON
-        // ----------------------------------------------------
+        // -----------------------------------------------
 
-        makeItemTexturePack(
+        saveJSON(
 
-            RP,
-            itemName,
-            itemIdentifier
+            path.join(
+                RP,
+                "textures",
+                "item_texture.json"
+            ),
+
+            makeItemTextureJSON(
+
+                iconKey,
+
+                `textures/items/${itemName}_ico`
+            )
         );
 
 
-        // ----------------------------------------------------
+        // -----------------------------------------------
+        // ATTACHABLE
+        // -----------------------------------------------
+
+        saveJSON(
+
+            path.join(
+                RP,
+                "attachables",
+                `${itemName}.json`
+            ),
+
+            makeSwordAttachable(
+
+                itemIdentifier,
+
+                geometryName,
+
+                itemName
+            )
+        );
+
+
+        // -----------------------------------------------
         // GEOMETRIA
-        // ----------------------------------------------------
+        // -----------------------------------------------
 
         saveJSON(
 
@@ -2755,28 +1930,9 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
-        // ATTACHABLE
-        // ----------------------------------------------------
-
-        saveJSON(
-
-            path.join(
-                RP,
-                "attachables",
-                `${itemName}.json`
-            ),
-
-            makeSwordAttachable(
-                itemIdentifier,
-                geometryName
-            )
-        );
-
-
-        // ----------------------------------------------------
+        // -----------------------------------------------
         // RENDER CONTROLLER
-        // ----------------------------------------------------
+        // -----------------------------------------------
 
         saveJSON(
 
@@ -2800,14 +1956,9 @@ function createProject(description) {
         const blockName =
             `${nameSlug}_block`;
 
-
         const blockIdentifier =
             `${namespace}:${blockName}`;
 
-
-        // ----------------------------------------------------
-        // BEHAVIOR
-        // ----------------------------------------------------
 
         saveJSON(
 
@@ -2823,10 +1974,6 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
-        // TEXTURA
-        // ----------------------------------------------------
-
         makeGenericTexture(
 
             path.join(
@@ -2839,10 +1986,6 @@ function createProject(description) {
             colors
         );
 
-
-        // ----------------------------------------------------
-        // TERRAIN
-        // ----------------------------------------------------
 
         saveJSON(
 
@@ -2858,10 +2001,6 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
-        // BLOCKS.JSON
-        // ----------------------------------------------------
-
         saveJSON(
 
             path.join(
@@ -2874,10 +2013,6 @@ function createProject(description) {
             )
         );
 
-
-        // ----------------------------------------------------
-        // GEOMETRIA DO BLOCO
-        // ----------------------------------------------------
 
         saveJSON(
 
@@ -2902,18 +2037,16 @@ function createProject(description) {
         const mobName =
             nameSlug;
 
-
         const mobIdentifier =
             `${namespace}:${mobName}`;
-
 
         const geometryName =
             `geometry.${mobName}`;
 
 
-        // ----------------------------------------------------
-        // BEHAVIOR ENTITY
-        // ----------------------------------------------------
+        // -----------------------------------------------
+        // BEHAVIOR
+        // -----------------------------------------------
 
         saveJSON(
 
@@ -2930,9 +2063,9 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
+        // -----------------------------------------------
         // SPAWN RULES
-        // ----------------------------------------------------
+        // -----------------------------------------------
 
         saveJSON(
 
@@ -2948,26 +2081,34 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
-        // TEXTURA DO MOB
-        // ----------------------------------------------------
+        // -----------------------------------------------
+        // CLIENT ENTITY
+        // -----------------------------------------------
 
-        makeMobTexture(
+        saveJSON(
 
             path.join(
                 RP,
-                "textures",
                 "entity",
-                `${mobName}.png`
+                `${mobName}.entity.json`
             ),
 
-            colors
+            makeClientEntity(
+
+                mobIdentifier,
+
+                geometryName,
+
+                mobName,
+
+                colors
+            )
         );
 
 
-        // ----------------------------------------------------
-        // GEOMETRIA DO MOB
-        // ----------------------------------------------------
+        // -----------------------------------------------
+        // GEOMETRIA
+        // -----------------------------------------------
 
         saveJSON(
 
@@ -2984,30 +2125,26 @@ function createProject(description) {
         );
 
 
-        // ----------------------------------------------------
-        // CLIENT ENTITY
-        // ----------------------------------------------------
+        // -----------------------------------------------
+        // TEXTURA
+        // -----------------------------------------------
 
-        saveJSON(
+        makeMobTexture(
 
             path.join(
                 RP,
+                "textures",
                 "entity",
-                `${mobName}.entity.json`
+                `${mobName}.png`
             ),
 
-            makeClientEntity(
-                mobIdentifier,
-                geometryName,
-                mobName,
-                colors
-            )
+            colors
         );
 
 
-        // ----------------------------------------------------
+        // -----------------------------------------------
         // RENDER CONTROLLER
-        // ----------------------------------------------------
+        // -----------------------------------------------
 
         saveJSON(
 
@@ -3021,28 +2158,11 @@ function createProject(description) {
                 mobName
             )
         );
-
-
-        // ----------------------------------------------------
-        // SPAWN EGG
-        // ----------------------------------------------------
-
-        makeSpawnEggTexture(
-
-            path.join(
-                RP,
-                "textures",
-                "items",
-                `${mobName}_spawn_egg.png`
-            ),
-
-            colors
-        );
     }
 
 
     // ========================================================
-    // INFORMAÇÕES DO PROJETO
+    // INFORMAÇÕES
     // ========================================================
 
     saveJSON(
@@ -3054,26 +2174,23 @@ function createProject(description) {
 
         {
 
-            name:
-                name,
+            name,
 
             description:
                 original,
 
-            namespace:
-                namespace,
+            namespace,
 
             minecraft_version:
                 MINECRAFT_VERSION,
 
-            behavior_pack_uuid:
+            behavior_pack:
                 bpUUID,
 
-            resource_pack_uuid:
+            resource_pack:
                 rpUUID,
 
-            identifier:
-                identifier,
+            identifier,
 
             features:
                 config,
@@ -3086,42 +2203,32 @@ function createProject(description) {
 
     return {
 
-        name:
-            name,
+        name,
 
-        nameSlug:
-            nameSlug,
+        nameSlug,
 
-        identifier:
-            identifier,
+        identifier,
 
-        projectDir:
-            projectDir,
+        projectDir,
 
-        BP:
-            BP,
+        BP,
 
-        RP:
-            RP,
+        RP,
 
-        bpUUID:
-            bpUUID,
+        bpUUID,
 
-        rpUUID:
-            rpUUID,
+        rpUUID,
 
-        config:
-            config
+        config
     };
-                        }
+}
+
+
 // ============================================================
-// ZIP DE UMA PASTA
+// ZIP
 // ============================================================
 
-function zipFolder(
-    folder,
-    output
-) {
+function zipFolder(folder, output) {
 
     return new Promise(
         (resolve, reject) => {
@@ -3145,32 +2252,26 @@ function zipFolder(
             stream.on(
                 "close",
                 () => {
-
                     resolve(output);
                 }
             );
-
 
             stream.on(
                 "error",
                 reject
             );
 
-
             archive.on(
                 "error",
                 reject
             );
 
-
             archive.pipe(stream);
-
 
             archive.directory(
                 folder,
                 false
             );
-
 
             archive.finalize();
         }
@@ -3179,11 +2280,7 @@ function zipFolder(
 
 
 // ============================================================
-// CRIAR MCADDON
-//
-// O .mcaddon contém:
-//   - Behavior Pack .mcpack
-//   - Resource Pack .mcpack
+// MCADDON
 // ============================================================
 
 function makeMCAddon(
@@ -3214,23 +2311,19 @@ function makeMCAddon(
             stream.on(
                 "close",
                 () => {
-
                     resolve(output);
                 }
             );
-
 
             stream.on(
                 "error",
                 reject
             );
 
-
             archive.on(
                 "error",
                 reject
             );
-
 
             archive.pipe(stream);
 
@@ -3260,32 +2353,10 @@ function makeMCAddon(
 
 
 // ============================================================
-// VERIFICAR ARQUIVO
-// ============================================================
-
-function fileExists(file) {
-
-    try {
-
-        return (
-            fs.existsSync(file) &&
-            fs.statSync(file).isFile()
-        );
-
-    } catch {
-
-        return false;
-    }
-}
-
-
-// ============================================================
 // GERADOR PRINCIPAL
 // ============================================================
 
-async function gerarAddon(
-    description
-) {
+async function gerarAddon(description) {
 
     if (
         !description ||
@@ -3298,19 +2369,15 @@ async function gerarAddon(
     }
 
 
-    // --------------------------------------------------------
-    // CRIAR PROJETO
-    // --------------------------------------------------------
-
     const project =
         createProject(
             description
         );
 
 
-    // --------------------------------------------------------
-    // NOMES DOS PACKS
-    // --------------------------------------------------------
+    const timestamp =
+        Date.now();
+
 
     const bpPack =
         path.join(
@@ -3329,13 +2396,9 @@ async function gerarAddon(
     const addon =
         path.join(
             OUTPUT,
-            `${project.nameSlug}_${Date.now()}.mcaddon`
+            `${project.nameSlug}_${timestamp}.mcaddon`
         );
 
-
-    // --------------------------------------------------------
-    // CRIAR BP
-    // --------------------------------------------------------
 
     await zipFolder(
         project.BP,
@@ -3343,19 +2406,11 @@ async function gerarAddon(
     );
 
 
-    // --------------------------------------------------------
-    // CRIAR RP
-    // --------------------------------------------------------
-
     await zipFolder(
         project.RP,
         rpPack
     );
 
-
-    // --------------------------------------------------------
-    // CRIAR MCADDON
-    // --------------------------------------------------------
 
     await makeMCAddon(
         bpPack,
@@ -3364,42 +2419,9 @@ async function gerarAddon(
     );
 
 
-    // --------------------------------------------------------
-    // VERIFICAÇÃO
-    // --------------------------------------------------------
-
-    if (!fileExists(bpPack)) {
-
-        throw new Error(
-            "O Behavior Pack não foi criado corretamente."
-        );
-    }
-
-
-    if (!fileExists(rpPack)) {
-
-        throw new Error(
-            "O Resource Pack não foi criado corretamente."
-        );
-    }
-
-
-    if (!fileExists(addon)) {
-
-        throw new Error(
-            "O MCADDON não foi criado corretamente."
-        );
-    }
-
-
-    // --------------------------------------------------------
-    // RESULTADO
-    // --------------------------------------------------------
-
     return {
 
-        sucesso:
-            true,
+        sucesso: true,
 
         nome:
             project.name,
@@ -3420,30 +2442,8 @@ async function gerarAddon(
             rpPack,
 
         pasta:
-            project.projectDir,
-
-        identificador:
-            project.identifier,
-
-        features:
-            project.config
+            project.projectDir
     };
-}
-
-
-// ============================================================
-// TESTE DO GERADOR
-// ============================================================
-
-async function testarGerador() {
-
-    const teste =
-        await gerarAddon(
-            "espada vermelha com 8 de dano"
-        );
-
-
-    return teste;
 }
 
 
@@ -3461,82 +2461,3 @@ module.exports = {
 
     MINECRAFT_VERSION
 };
-
-
-// ============================================================
-// EXECUÇÃO DIRETA
-//
-// Se executar:
-//
-// node minecraft.js
-//
-// será criado um addon de teste.
-// ============================================================
-
-if (
-    require.main === module
-) {
-
-    testarGerador()
-
-        .then(
-            resultado => {
-
-                console.log(
-                    "\n===================================="
-                );
-
-                console.log(
-                    "   MINECRAFT ADDON GERADO"
-                );
-
-                console.log(
-                    "===================================="
-                );
-
-                console.log(
-                    "Nome:",
-                    resultado.nome
-                );
-
-                console.log(
-                    "Minecraft:",
-                    resultado.versao
-                );
-
-                console.log(
-                    "MCADDON:",
-                    resultado.mcaddon
-                );
-
-                console.log(
-                    "BP:",
-                    resultado.behavior_pack
-                );
-
-                console.log(
-                    "RP:",
-                    resultado.resource_pack
-                );
-
-                console.log(
-                    "====================================\n"
-                );
-            }
-        )
-
-        .catch(
-            error => {
-
-                console.error(
-                    "\nERRO AO GERAR ADDON:"
-                );
-
-                console.error(
-                    error
-                );
-
-                process.exit(1);
-            }
-        );
-        } 
