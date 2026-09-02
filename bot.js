@@ -977,80 +977,124 @@ bot.onText(
     }
 );
 
-// =====================================================
-// 🤖 QUIZ IA - GROQ
+
+
+            // =====================================================
+// 🤖 COMANDO /IA
 // =====================================================
 
 bot.onText(
-    /^\/quizia$/,
-    async (msg) => {
+    /^\/ia(?:\s+([\s\S]+))?$/,
+    async (msg, match) => {
 
         const chatId = msg.chat.id;
 
+        const pergunta =
+            match && match[1]
+                ? match[1].trim()
+                : "";
+
+        if (!pergunta) {
+
+            await bot.sendMessage(
+                chatId,
+                "🤖 IA DO GUARDA-CHUVA\n\n" +
+                "Escreve a tua pergunta depois de /ia.\n\n" +
+                "Exemplo:\n" +
+                "/ia Quem foi Albert Einstein?"
+            );
+
+            return;
+        }
+
+        let aguardando;
+
         try {
 
-            await bot.sendMessage(
-                chatId,
-                "🤖🌍 A IA está a criar uma pergunta..."
-            );
+            aguardando =
+                await bot.sendMessage(
+                    chatId,
+                    "🤖 Estou a pensar..."
+                );
 
-            const pergunta = await gerarQuizIA();
+            const resposta =
+                await responderIA(pergunta);
 
-            // Guardar a pergunta para os botões
-            perguntasAtivas.set(
-                chatId,
-                pergunta
-            );
+            if (
+                !resposta ||
+                !String(resposta).trim()
+            ) {
+                throw new Error(
+                    "A IA não retornou uma resposta."
+                );
+            }
 
-            const botoes = pergunta.opcoes.map(
-                (opcao, indice) => {
+            /*
+            Não usamos parse_mode aqui.
+            Assim, caracteres como *, _, [, ]
+            vindos da IA não quebram o Telegram.
+            */
 
-                    const letra =
-                        String.fromCharCode(65 + indice);
+            await bot.editMessageText(
 
-                    return [
-                        {
-                            text:
-                                `${letra}) ${opcao}`,
-
-                            callback_data:
-                                `quiz_resposta:${chatId}:${indice}`
-                        }
-                    ];
-                }
-            );
-
-            await bot.sendMessage(
-                chatId,
-                pergunta.pergunta +
-                "\n\n👇 *Escolhe uma resposta:*" +
-                "\n\n🏆 Vale 10 pontos.",
+                "🤖 IA DO GUARDA-CHUVA\n\n" +
+                String(resposta),
 
                 {
-                    parse_mode: "Markdown",
+                    chat_id: chatId,
 
-                    reply_markup: {
-                        inline_keyboard:
-                            botoes
-                    }
+                    message_id:
+                        aguardando.message_id
                 }
             );
 
         } catch (erro) {
 
             console.error(
-                "❌ Erro no Quiz IA:",
-                erro
+                "❌ ERRO NO COMANDO /IA:",
+                erro?.message || erro
             );
 
-            await bot.sendMessage(
-                chatId,
-                "❌ A IA não conseguiu criar o quiz agora.\n\n" +
-                "Verifica se a GROQ_API_KEY está configurada no Render."
-            );
+            const mensagemErro =
+                "❌ Não consegui responder agora.\n\n" +
+                "Verifica a GROQ_API_KEY no Render e " +
+                "consulta os logs do serviço.";
+
+            try {
+
+                if (aguardando) {
+
+                    await bot.editMessageText(
+
+                        mensagemErro,
+
+                        {
+                            chat_id: chatId,
+
+                            message_id:
+                                aguardando.message_id
+                        }
+                    );
+
+                } else {
+
+                    await bot.sendMessage(
+                        chatId,
+                        mensagemErro
+                    );
+                }
+
+            } catch (erroTelegram) {
+
+                console.error(
+                    "❌ Erro ao enviar erro da IA:",
+                    erroTelegram?.message ||
+                    erroTelegram
+                );
+            }
         }
     }
-);
+); 
 
 
 // =====================================================
