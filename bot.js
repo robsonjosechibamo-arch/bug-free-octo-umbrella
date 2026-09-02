@@ -977,7 +977,157 @@ bot.onText(
     }
 );
 
+// =====================================================
+// 🤖 QUIZ IA - GROQ
+// =====================================================
 
+bot.onText(
+    /^\/quizia$/,
+    async (msg) => {
+
+        const chatId = msg.chat.id;
+
+        try {
+
+            await bot.sendMessage(
+                chatId,
+                "🤖🌍 A IA está a criar uma pergunta..."
+            );
+
+            const pergunta = await gerarQuizIA();
+
+            // Guardar a pergunta para os botões
+            perguntasAtivas.set(
+                chatId,
+                pergunta
+            );
+
+            const botoes = pergunta.opcoes.map(
+                (opcao, indice) => {
+
+                    const letra =
+                        String.fromCharCode(65 + indice);
+
+                    return [
+                        {
+                            text:
+                                `${letra}) ${opcao}`,
+
+                            callback_data:
+                                `quiz_resposta:${chatId}:${indice}`
+                        }
+                    ];
+                }
+            );
+
+            await bot.sendMessage(
+                chatId,
+                pergunta.pergunta +
+                "\n\n👇 *Escolhe uma resposta:*" +
+                "\n\n🏆 Vale 10 pontos.",
+
+                {
+                    parse_mode: "Markdown",
+
+                    reply_markup: {
+                        inline_keyboard:
+                            botoes
+                    }
+                }
+            );
+
+        } catch (erro) {
+
+            console.error(
+                "❌ Erro no Quiz IA:",
+                erro
+            );
+
+            await bot.sendMessage(
+                chatId,
+                "❌ A IA não conseguiu criar o quiz agora.\n\n" +
+                "Verifica se a GROQ_API_KEY está configurada no Render."
+            );
+        }
+    }
+);
+
+
+// =====================================================
+// 🤖✅ VERDADEIRO/FALSO IA - GROQ
+// =====================================================
+
+bot.onText(
+    /^\/vfia$/,
+    async (msg) => {
+
+        const chatId = msg.chat.id;
+
+        try {
+
+            await bot.sendMessage(
+                chatId,
+                "🤖✅ A IA está a criar uma afirmação..."
+            );
+
+            const pergunta =
+                await gerarVerdadeiroFalsoIA();
+
+            // Guardar a pergunta para os botões
+            perguntasAtivas.set(
+                chatId,
+                pergunta
+            );
+
+            const botoes =
+                pergunta.opcoes.map(
+                    (opcao, indice) => {
+
+                        return [
+                            {
+                                text:
+                                    opcao === "V"
+                                        ? "✅ Verdadeiro"
+                                        : "❌ Falso",
+
+                                callback_data:
+                                    `quiz_resposta:${chatId}:${indice}`
+                            }
+                        ];
+                    }
+                );
+
+            await bot.sendMessage(
+                chatId,
+                pergunta.pergunta +
+                "\n\n👇 *Escolhe uma resposta:*" +
+                "\n\n🏆 Vale 10 pontos.",
+
+                {
+                    parse_mode: "Markdown",
+
+                    reply_markup: {
+                        inline_keyboard:
+                            botoes
+                    }
+                }
+            );
+
+        } catch (erro) {
+
+            console.error(
+                "❌ Erro no Verdadeiro/Falso IA:",
+                erro
+            );
+
+            await bot.sendMessage(
+                chatId,
+                "❌ A IA não conseguiu criar o desafio agora.\n\n" +
+                "Verifica se a GROQ_API_KEY está configurada no Render."
+            );
+        }
+    }
+);
 bot.onText(
 
     /^\/charada$/,
