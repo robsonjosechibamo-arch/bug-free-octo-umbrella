@@ -7,42 +7,64 @@ GUARDA-CHUVA BOT
 GERADOR DE DESAFIOS
 =========================================================
 
-Objetivos:
-- Gerar desafios aleatórios
-- Evitar repetições
-- Guardar histórico em dados/usadas.json
-- Manter histórico depois de reiniciar o bot
-- Não usar limite artificial de quantidade de perguntas
+- Gera desafios aleatórios
+- Evita repetições
+- Guarda histórico em dados/usadas.json
+- Mantém histórico depois de reiniciar
+- Quando o catálogo esgota, tenta usar IA
+- IA gera perguntas novas
+- Não usa limite artificial de quantidade de perguntas
 =========================================================
 */
 
 const DATA_DIR = path.join(__dirname, "dados");
 const USED_FILE = path.join(DATA_DIR, "usadas.json");
 
+// =======================================================
+// CONFIGURAÇÃO DA IA
+// =======================================================
+
+const GROQ_API_KEY =
+    process.env.GROQ_API_KEY || "";
+
+const GROQ_MODEL =
+    "llama-3.1-8b-instant";
+
+// =======================================================
+// PASTA DE DADOS
+// =======================================================
+
 if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.mkdirSync(DATA_DIR, {
+        recursive: true
+    });
 }
 
-/*
-=========================================================
-CARREGAR PERGUNTAS USADAS
-=========================================================
-*/
+// =======================================================
+// CARREGAR PERGUNTAS USADAS
+// =======================================================
 
 let usadas = {};
 
 try {
+
     if (fs.existsSync(USED_FILE)) {
-        const conteudo = fs.readFileSync(
-            USED_FILE,
-            "utf8"
-        );
+
+        const conteudo =
+            fs.readFileSync(
+                USED_FILE,
+                "utf8"
+            );
 
         if (conteudo.trim()) {
-            usadas = JSON.parse(conteudo) || {};
+
+            usadas =
+                JSON.parse(conteudo) || {};
         }
     }
+
 } catch (erro) {
+
     console.error(
         "⚠️ Não foi possível carregar usadas.json:",
         erro.message
@@ -51,14 +73,14 @@ try {
     usadas = {};
 }
 
-/*
-=========================================================
-SALVAR PERGUNTAS USADAS
-=========================================================
-*/
+// =======================================================
+// SALVAR PERGUNTAS USADAS
+// =======================================================
 
 function salvarUsadas() {
+
     try {
+
         fs.writeFileSync(
             USED_FILE,
             JSON.stringify(
@@ -68,7 +90,9 @@ function salvarUsadas() {
             ),
             "utf8"
         );
+
     } catch (erro) {
+
         console.error(
             "❌ Erro ao salvar perguntas usadas:",
             erro.message
@@ -76,13 +100,12 @@ function salvarUsadas() {
     }
 }
 
-/*
-=========================================================
-UTILITÁRIOS
-=========================================================
-*/
+// =======================================================
+// UTILITÁRIOS
+// =======================================================
 
 function aleatorio(min, max) {
+
     return Math.floor(
         Math.random() *
         (max - min + 1)
@@ -90,8 +113,15 @@ function aleatorio(min, max) {
 }
 
 function escolha(lista) {
-    if (!Array.isArray(lista) || !lista.length) {
-        throw new Error("Lista vazia.");
+
+    if (
+        !Array.isArray(lista) ||
+        !lista.length
+    ) {
+
+        throw new Error(
+            "Lista vazia."
+        );
     }
 
     return lista[
@@ -103,12 +133,14 @@ function escolha(lista) {
 }
 
 function embaralhar(lista) {
+
     return [...lista].sort(
         () => Math.random() - 0.5
     );
 }
 
 function normalizar(texto) {
+
     return String(texto)
         .toLowerCase()
         .normalize("NFD")
@@ -127,24 +159,297 @@ function normalizar(texto) {
         .trim();
 }
 
-/*
-=========================================================
-ANTI-REPETIÇÃO
-=========================================================
-*/
+// =======================================================
+// GERAR PERGUNTA COM IA
+// =======================================================
 
-function novoDesafio(categoria, criar) {
+async function gerarPerguntaIA(categoria) {
+
+    if (!GROQ_API_KEY) {
+
+        console.log(
+            "⚠️ GROQ_API_KEY não configurada. IA desativada."
+        );
+
+        return null;
+    }
+
+    /*
+    Categorias matemáticas continuam usando
+    os geradores matemáticos locais.
+    */
+
+    const categoriasMatematicas = [
+        "soma",
+        "subtracao",
+        "multiplicacao",
+        "divisao",
+        "porcentagem",
+        "potencia",
+        "equacao",
+        "sequencia",
+        "par_impar",
+        "maior_menor",
+        "conversao"
+    ];
+
+    if (
+        categoriasMatematicas.includes(
+            categoria
+        )
+    ) {
+
+        return null;
+    }
+
+    const historico =
+        usadas[categoria] || [];
+
+    /*
+    Envia uma pequena amostra do histórico
+    para ajudar a IA a não repetir perguntas.
+    */
+
+    const exemplosUsados =
+        historico
+            .slice(-50)
+            .join("\n");
+
+    const prompt = `
+Crie UMA pergunta/desafio ORIGINAL
+para um jogo de Telegram.
+
+Categoria: ${categoria}
+
+REGRAS IMPORTANTES:
+
+1. Escreva em português.
+2. Não use matemática.
+3. A pergunta deve ter uma resposta correta.
+4. Não copie perguntas conhecidas.
+5. Não repita perguntas anteriores.
+6. Seja interessante e adequada para todas as idades.
+7. Não invente fatos.
+8. Não coloque explicações.
+9. Retorne SOMENTE JSON válido.
+10. A resposta deve ser curta.
+
+Alguns IDs/perguntas já utilizadas:
+${exemplosUsados}
+
+Formato obrigatório:
+
+{
+  "pergunta": "texto da pergunta",
+  "resposta": "resposta correta"
+}
+`;
+
+    try {
+
+        const resposta =
+            await fetch(
+                "https://api.groq.com/openai/v1/chat/completions",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+
+                        "Authorization":
+                            `Bearer ${GROQ_API_KEY}`
+                    },
+
+                    body: JSON.stringify({
+
+                        model:
+                            GROQ_MODEL,
+
+                        messages: [
+
+                            {
+                                role:
+                                    "system",
+
+                                content:
+                                    "Você é um gerador de perguntas originais para jogos. Responda somente com JSON válido."
+                            },
+
+                            {
+                                role:
+                                    "user",
+
+                                content:
+                                    prompt
+                            }
+                        ],
+
+                        temperature:
+                            1.2,
+
+                        max_tokens:
+                            300
+                    })
+                }
+            );
+
+        if (!resposta.ok) {
+
+            const erro =
+                await resposta.text();
+
+            console.error(
+                "❌ Erro da IA:",
+                erro
+            );
+
+            return null;
+        }
+
+        const dados =
+            await resposta.json();
+
+        let texto =
+            dados?.choices?.[0]
+                ?.message
+                ?.content
+                ?.trim();
+
+        if (!texto) {
+
+            return null;
+        }
+
+        /*
+        Remove possíveis blocos Markdown.
+        */
+
+        texto =
+            texto
+                .replace(
+                    /```json/gi,
+                    ""
+                )
+                .replace(
+                    /```/g,
+                    ""
+                )
+                .trim();
+
+        let resultado;
+
+        try {
+
+            resultado =
+                JSON.parse(texto);
+
+        } catch (erro) {
+
+            console.error(
+                "⚠️ A IA não retornou JSON válido."
+            );
+
+            return null;
+        }
+
+        if (
+            !resultado ||
+            !resultado.pergunta ||
+            !resultado.resposta
+        ) {
+
+            return null;
+        }
+
+        const pergunta =
+            String(
+                resultado.pergunta
+            ).trim();
+
+        const respostaCorreta =
+            String(
+                resultado.resposta
+            ).trim();
+
+        if (
+            !pergunta ||
+            !respostaCorreta
+        ) {
+
+            return null;
+        }
+
+        const id =
+            `ia:${categoria}:${normalizar(
+                pergunta
+            )}`;
+
+        /*
+        Verificação adicional contra
+        perguntas já utilizadas.
+        */
+
+        if (
+            (usadas[categoria] || [])
+                .includes(id)
+        ) {
+
+            console.log(
+                "⚠️ IA gerou uma pergunta já usada."
+            );
+
+            return null;
+        }
+
+        return {
+
+            pergunta:
+                pergunta,
+
+            resposta:
+                respostaCorreta,
+
+            id:
+                id,
+
+            geradoPorIA:
+                true
+        };
+
+    } catch (erro) {
+
+        console.error(
+            "❌ Falha ao contactar a IA:",
+            erro.message
+        );
+
+        return null;
+    }
+}
+
+// =======================================================
+// ANTI-REPETIÇÃO
+// =======================================================
+
+async function novoDesafio(
+    categoria,
+    criar
+) {
 
     if (!usadas[categoria]) {
+
         usadas[categoria] = [];
     }
 
-    let jaUsadas =
-        new Set(usadas[categoria]);
+    const jaUsadas =
+        new Set(
+            usadas[categoria]
+        );
 
     /*
     =====================================================
-    TENTAR GERAR UMA PERGUNTA NOVA
+    TENTAR GERAR PERGUNTA DO CATÁLOGO
     =====================================================
     */
 
@@ -154,7 +459,8 @@ function novoDesafio(categoria, criar) {
         tentativa++
     ) {
 
-        const pergunta = criar();
+        const pergunta =
+            criar();
 
         if (!pergunta) {
             continue;
@@ -166,11 +472,15 @@ function novoDesafio(categoria, criar) {
                 pergunta.pergunta
             )}`;
 
-        if (!jaUsadas.has(id)) {
+        if (
+            !jaUsadas.has(id)
+        ) {
 
-            pergunta.id = id;
+            pergunta.id =
+                id;
 
-            usadas[categoria].push(id);
+            usadas[categoria]
+                .push(id);
 
             salvarUsadas();
 
@@ -185,22 +495,64 @@ function novoDesafio(categoria, criar) {
     */
 
     console.log(
-        `♻️ Categoria "${categoria}" esgotada. Reiniciando ciclo.`
+        `📚 Categoria "${categoria}" esgotada.`
+    );
+
+    /*
+    =====================================================
+    TENTAR IA
+    =====================================================
+    */
+
+    console.log(
+        `🤖 Tentando gerar nova pergunta com IA...`
+    );
+
+    const perguntaIA =
+        await gerarPerguntaIA(
+            categoria
+        );
+
+    if (perguntaIA) {
+
+        usadas[categoria]
+            .push(
+                perguntaIA.id
+            );
+
+        salvarUsadas();
+
+        console.log(
+            `✅ Nova pergunta criada pela IA: ${categoria}`
+        );
+
+        return perguntaIA;
+    }
+
+    /*
+    =====================================================
+    FALLBACK
+    =====================================================
+    
+    Se a IA não estiver disponível,
+    reinicia o ciclo do catálogo.
+    */
+
+    console.log(
+        `♻️ IA indisponível. Reiniciando catálogo "${categoria}".`
     );
 
     usadas[categoria] = [];
 
     salvarUsadas();
 
-    /*
-    Gerar novamente depois de limpar o histórico.
-    */
-
-    const novaPergunta = criar();
+    const novaPergunta =
+        criar();
 
     if (!novaPergunta) {
+
         throw new Error(
-            `Não foi possível gerar uma pergunta para "${categoria}".`
+            `Não foi possível gerar pergunta para "${categoria}".`
         );
     }
 
@@ -210,24 +562,24 @@ function novoDesafio(categoria, criar) {
             novaPergunta.pergunta
         )}`;
 
-    novaPergunta.id = novoId;
+    novaPergunta.id =
+        novoId;
 
-    usadas[categoria].push(novoId);
+    usadas[categoria]
+        .push(novoId);
 
     salvarUsadas();
 
     return novaPergunta;
 }
 
-/*
-=========================================================
-MATEMÁTICA
-=========================================================
-*/
+// =======================================================
+// MATEMÁTICA
+// =======================================================
 
-function gerarSoma() {
+async function gerarSoma() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "soma",
         () => {
 
@@ -249,7 +601,9 @@ function gerarSoma() {
                     `🧮 Quanto é ${a} + ${b}?`,
 
                 resposta:
-                    String(a + b),
+                    String(
+                        a + b
+                    ),
 
                 id:
                     `soma:${a}:${b}`
@@ -258,9 +612,9 @@ function gerarSoma() {
     );
 }
 
-function gerarSubtracao() {
+async function gerarSubtracao() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "subtracao",
         () => {
 
@@ -282,7 +636,9 @@ function gerarSubtracao() {
                     `🧮 Quanto é ${a} − ${b}?`,
 
                 resposta:
-                    String(a - b),
+                    String(
+                        a - b
+                    ),
 
                 id:
                     `sub:${a}:${b}`
@@ -291,9 +647,9 @@ function gerarSubtracao() {
     );
 }
 
-function gerarMultiplicacao() {
+async function gerarMultiplicacao() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "multiplicacao",
         () => {
 
@@ -315,7 +671,9 @@ function gerarMultiplicacao() {
                     `🧮 Quanto é ${a} × ${b}?`,
 
                 resposta:
-                    String(a * b),
+                    String(
+                        a * b
+                    ),
 
                 id:
                     `mult:${a}:${b}`
@@ -324,9 +682,9 @@ function gerarMultiplicacao() {
     );
 }
 
-function gerarDivisao() {
+async function gerarDivisao() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "divisao",
         () => {
 
@@ -352,7 +710,9 @@ function gerarDivisao() {
                     `🧮 Quanto é ${dividendo} ÷ ${divisor}?`,
 
                 resposta:
-                    String(resultado),
+                    String(
+                        resultado
+                    ),
 
                 id:
                     `div:${dividendo}:${divisor}`
@@ -375,9 +735,9 @@ function gcd(a, b) {
     return a;
 }
 
-function gerarPorcentagem() {
+async function gerarPorcentagem() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "porcentagem",
         () => {
 
@@ -406,14 +766,19 @@ function gerarPorcentagem() {
                 );
 
             const divisor =
-                gcd(p, 100);
+                gcd(
+                    p,
+                    100
+                );
 
             const total =
                 base *
                 (100 / divisor);
 
             const resposta =
-                (total * p) / 100;
+                (
+                    total * p
+                ) / 100;
 
             return {
 
@@ -421,7 +786,9 @@ function gerarPorcentagem() {
                     `📊 Quanto é ${p}% de ${total}?`,
 
                 resposta:
-                    String(resposta),
+                    String(
+                        resposta
+                    ),
 
                 id:
                     `pct:${p}:${total}`
@@ -430,9 +797,9 @@ function gerarPorcentagem() {
     );
 }
 
-function gerarPotencia() {
+async function gerarPotencia() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "potencia",
         () => {
 
@@ -465,9 +832,9 @@ function gerarPotencia() {
     );
 }
 
-function gerarEquacao() {
+async function gerarEquacao() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "equacao",
         () => {
 
@@ -503,9 +870,9 @@ function gerarEquacao() {
     );
 }
 
-function gerarSequencia() {
+async function gerarSequencia() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "sequencia",
         () => {
 
@@ -543,7 +910,9 @@ function gerarSequencia() {
                     `${valores.join(" → ")} → ?`,
 
                 resposta:
-                    String(resposta),
+                    String(
+                        resposta
+                    ),
 
                 id:
                     `seq:${inicio}:${passo}`
@@ -552,45 +921,142 @@ function gerarSequencia() {
     );
 }
 
-/*
-=========================================================
-CHARADAS
-=========================================================
-*/
+// =======================================================
+// CHARADAS
+// =======================================================
 
 const charadas = [
 
-    ["Quanto mais se tira, maior fica. O que é?", "Buraco"],
-    ["Tem dentes, mas não morde. O que é?", "Pente"],
-    ["Tem mãos, mas não bate palmas. O que é?", "Relógio"],
-    ["Fica molhada enquanto seca. O que é?", "Toalha"],
-    ["Tem pescoço, mas não tem cabeça. O que é?", "Garrafa"],
-    ["Sobe e desce, mas fica no mesmo lugar. O que é?", "Escada"],
-    ["Corre sem ter pernas. O que é?", "Água"],
-    ["Tem cidades, rios e estradas, mas não tem casas. O que é?", "Mapa"],
-    ["Tem um olho, mas não consegue ver. O que é?", "Agulha"],
-    ["Pode ser quebrado sem ser tocado. O que é?", "Silêncio"],
-    ["Tem folhas, mas não é árvore. O que é?", "Livro"],
-    ["Tem teclas, mas não abre portas. O que é?", "Teclado"],
-    ["Tem pernas, mas não anda. O que é?", "Mesa"],
-    ["É seu, mas outras pessoas usam mais que você. O que é?", "Nome"],
-    ["Tem cabeça e cauda, mas não tem corpo. O que é?", "Moeda"],
-    ["Quanto mais quente fica, mais fresca parece. O que é?", "Sombra"],
-    ["Tem uma boca, mas não fala. O que é?", "Rio"],
-    ["Tem olhos, mas não vê. O que é?", "Batata"],
-    ["Entra na água e não fica molhado. O que é?", "Reflexo"],
-    ["Quanto mais cresce, menos se vê. O que é?", "Escuridão"],
-    ["Tem asas, mas não voa. O que é?", "Moinho"],
-    ["Tem quatro pernas e não consegue andar. O que é?", "Cadeira"],
-    ["Pode viajar pelo mundo sem sair do lugar. O que é?", "Selo"],
-    ["Tem uma cama, mas nunca dorme. O que é?", "Rio"],
-    ["Tem muitas palavras, mas nunca fala. O que é?", "Dicionário"]
+    [
+        "Quanto mais se tira, maior fica. O que é?",
+        "Buraco"
+    ],
+
+    [
+        "Tem dentes, mas não morde. O que é?",
+        "Pente"
+    ],
+
+    [
+        "Tem mãos, mas não bate palmas. O que é?",
+        "Relógio"
+    ],
+
+    [
+        "Fica molhada enquanto seca. O que é?",
+        "Toalha"
+    ],
+
+    [
+        "Tem pescoço, mas não tem cabeça. O que é?",
+        "Garrafa"
+    ],
+
+    [
+        "Sobe e desce, mas fica no mesmo lugar. O que é?",
+        "Escada"
+    ],
+
+    [
+        "Corre sem ter pernas. O que é?",
+        "Água"
+    ],
+
+    [
+        "Tem cidades, rios e estradas, mas não tem casas. O que é?",
+        "Mapa"
+    ],
+
+    [
+        "Tem um olho, mas não consegue ver. O que é?",
+        "Agulha"
+    ],
+
+    [
+        "Pode ser quebrado sem ser tocado. O que é?",
+        "Silêncio"
+    ],
+
+    [
+        "Tem folhas, mas não é árvore. O que é?",
+        "Livro"
+    ],
+
+    [
+        "Tem teclas, mas não abre portas. O que é?",
+        "Teclado"
+    ],
+
+    [
+        "Tem pernas, mas não anda. O que é?",
+        "Mesa"
+    ],
+
+    [
+        "É seu, mas outras pessoas usam mais que você. O que é?",
+        "Nome"
+    ],
+
+    [
+        "Tem cabeça e cauda, mas não tem corpo. O que é?",
+        "Moeda"
+    ],
+
+    [
+        "Quanto mais quente fica, mais fresca parece. O que é?",
+        "Sombra"
+    ],
+
+    [
+        "Tem uma boca, mas não fala. O que é?",
+        "Rio"
+    ],
+
+    [
+        "Tem olhos, mas não vê. O que é?",
+        "Batata"
+    ],
+
+    [
+        "Entra na água e não fica molhado. O que é?",
+        "Reflexo"
+    ],
+
+    [
+        "Quanto mais cresce, menos se vê. O que é?",
+        "Escuridão"
+    ],
+
+    [
+        "Tem asas, mas não voa. O que é?",
+        "Moinho"
+    ],
+
+    [
+        "Tem quatro pernas e não consegue andar. O que é?",
+        "Cadeira"
+    ],
+
+    [
+        "Pode viajar pelo mundo sem sair do lugar. O que é?",
+        "Selo"
+    ],
+
+    [
+        "Tem uma cama, mas nunca dorme. O que é?",
+        "Rio"
+    ],
+
+    [
+        "Tem muitas palavras, mas nunca fala. O que é?",
+        "Dicionário"
+    ]
 
 ];
 
-function gerarCharada() {
+async function gerarCharada() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "charadas",
         () => {
 
@@ -606,51 +1072,150 @@ function gerarCharada() {
                     item[1],
 
                 id:
-                    `charada:${normalizar(item[0])}`
+                    `charada:${normalizar(
+                        item[0]
+                    )}`
             };
         }
     );
 }
 
-/*
-=========================================================
-VERDADEIRO / FALSO
-=========================================================
-*/
+// =======================================================
+// VERDADEIRO / FALSO
+// =======================================================
 
 const verdadeiroFalso = [
 
-    ["A Terra gira em torno do Sol.", "V"],
-    ["O Sol é um planeta.", "F"],
-    ["Moçambique fica em África.", "V"],
-    ["Um triângulo possui quatro lados.", "F"],
-    ["A Lua é um satélite natural da Terra.", "V"],
-    ["O número 2 é ímpar.", "F"],
-    ["A água é composta por hidrogénio e oxigénio.", "V"],
-    ["O Brasil fica em África.", "F"],
-    ["Uma hora possui 60 minutos.", "V"],
-    ["Uma semana possui 10 dias.", "F"],
-    ["O gelo é água no estado sólido.", "V"],
-    ["A baleia é um mamífero.", "V"],
-    ["Um quilómetro possui 1000 metros.", "V"],
-    ["Marte é conhecido como Planeta Vermelho.", "V"],
-    ["O oxigénio é um metal.", "F"],
-    ["A Terra possui um satélite natural conhecido como Lua.", "V"],
-    ["O Japão fica na Europa.", "F"],
-    ["O número 10 é maior que o número 5.", "V"],
-    ["O Sol é uma estrela.", "V"],
-    ["A água ferve normalmente a 100 °C ao nível do mar.", "V"],
-    ["Um quadrado possui três lados.", "F"],
-    ["O continente africano é atravessado pelo Equador.", "V"],
-    ["Mercúrio é o planeta mais próximo do Sol.", "V"],
-    ["A baleia é um peixe.", "F"],
-    ["O ser humano adulto normalmente possui 206 ossos.", "V"]
+    [
+        "A Terra gira em torno do Sol.",
+        "V"
+    ],
+
+    [
+        "O Sol é um planeta.",
+        "F"
+    ],
+
+    [
+        "Moçambique fica em África.",
+        "V"
+    ],
+
+    [
+        "Um triângulo possui quatro lados.",
+        "F"
+    ],
+
+    [
+        "A Lua é um satélite natural da Terra.",
+        "V"
+    ],
+
+    [
+        "O número 2 é ímpar.",
+        "F"
+    ],
+
+    [
+        "A água é composta por hidrogénio e oxigénio.",
+        "V"
+    ],
+
+    [
+        "O Brasil fica em África.",
+        "F"
+    ],
+
+    [
+        "Uma hora possui 60 minutos.",
+        "V"
+    ],
+
+    [
+        "Uma semana possui 10 dias.",
+        "F"
+    ],
+
+    [
+        "O gelo é água no estado sólido.",
+        "V"
+    ],
+
+    [
+        "A baleia é um mamífero.",
+        "V"
+    ],
+
+    [
+        "Um quilómetro possui 1000 metros.",
+        "V"
+    ],
+
+    [
+        "Marte é conhecido como Planeta Vermelho.",
+        "V"
+    ],
+
+    [
+        "O oxigénio é um metal.",
+        "F"
+    ],
+
+    [
+        "A Terra possui um satélite natural conhecido como Lua.",
+        "V"
+    ],
+
+    [
+        "O Japão fica na Europa.",
+        "F"
+    ],
+
+    [
+        "O número 10 é maior que o número 5.",
+        "V"
+    ],
+
+    [
+        "O Sol é uma estrela.",
+        "V"
+    ],
+
+    [
+        "A água ferve normalmente a 100 °C ao nível do mar.",
+        "V"
+    ],
+
+    [
+        "Um quadrado possui três lados.",
+        "F"
+    ],
+
+    [
+        "O continente africano é atravessado pelo Equador.",
+        "V"
+    ],
+
+    [
+        "Mercúrio é o planeta mais próximo do Sol.",
+        "V"
+    ],
+
+    [
+        "A baleia é um peixe.",
+        "F"
+    ],
+
+    [
+        "O ser humano adulto normalmente possui 206 ossos.",
+        "V"
+    ]
 
 ];
 
-function gerarVerdadeiroFalso() {
+async function gerarVerdadeiroFalso() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "verdadeiro_falso",
         () => {
 
@@ -674,40 +1239,56 @@ function gerarVerdadeiroFalso() {
                 ],
 
                 id:
-                    `vf:${normalizar(item[0])}`
+                    `vf:${normalizar(
+                        item[0]
+                    )}`
             };
         }
     );
 }
 
-/*
-=========================================================
-QUIZ
-=========================================================
-*/
+// =======================================================
+// QUIZ
+// =======================================================
 
-function opcoesQuiz(resposta, alternativas) {
+function opcoesQuiz(
+    resposta,
+    alternativas
+) {
 
     const lista = [
         String(resposta),
-        ...alternativas.map(String)
+        ...alternativas.map(
+            String
+        )
     ];
 
     const unicas = [];
 
-    for (const item of lista) {
+    for (
+        const item of lista
+    ) {
 
-        if (!unicas.includes(item)) {
+        if (
+            !unicas.includes(item)
+        ) {
+
             unicas.push(item);
         }
     }
 
     return embaralhar(
-        unicas.slice(0, 4)
+        unicas.slice(
+            0,
+            4
+        )
     );
 }
 
-function numeroDiferente(valor, distancia = 1) {
+function numeroDiferente(
+    valor,
+    distancia = 1
+) {
 
     let novo;
 
@@ -716,11 +1297,19 @@ function numeroDiferente(valor, distancia = 1) {
         novo =
             valor +
             aleatorio(
-                -Math.max(10, distancia),
-                Math.max(10, distancia)
+                -Math.max(
+                    10,
+                    distancia
+                ),
+                Math.max(
+                    10,
+                    distancia
+                )
             );
 
-    } while (novo === valor);
+    } while (
+        novo === valor
+    );
 
     return novo;
 }
@@ -728,15 +1317,24 @@ function numeroDiferente(valor, distancia = 1) {
 function quizMatematica() {
 
     const tipo =
-        aleatorio(1, 4);
+        aleatorio(
+            1,
+            4
+        );
 
     if (tipo === 1) {
 
         const a =
-            aleatorio(10, 9999);
+            aleatorio(
+                10,
+                9999
+            );
 
         const b =
-            aleatorio(10, 9999);
+            aleatorio(
+                10,
+                9999
+            );
 
         const resposta =
             a + b;
@@ -753,9 +1351,18 @@ function quizMatematica() {
                 opcoesQuiz(
                     resposta,
                     [
-                        numeroDiferente(resposta, 20),
-                        numeroDiferente(resposta, 50),
-                        numeroDiferente(resposta, 100)
+                        numeroDiferente(
+                            resposta,
+                            20
+                        ),
+                        numeroDiferente(
+                            resposta,
+                            50
+                        ),
+                        numeroDiferente(
+                            resposta,
+                            100
+                        )
                     ]
                 ),
 
@@ -767,10 +1374,16 @@ function quizMatematica() {
     if (tipo === 2) {
 
         const a =
-            aleatorio(100, 9999);
+            aleatorio(
+                100,
+                9999
+            );
 
         const b =
-            aleatorio(1, a);
+            aleatorio(
+                1,
+                a
+            );
 
         const resposta =
             a - b;
@@ -787,9 +1400,18 @@ function quizMatematica() {
                 opcoesQuiz(
                     resposta,
                     [
-                        numeroDiferente(resposta, 15),
-                        numeroDiferente(resposta, 30),
-                        numeroDiferente(resposta, 60)
+                        numeroDiferente(
+                            resposta,
+                            15
+                        ),
+                        numeroDiferente(
+                            resposta,
+                            30
+                        ),
+                        numeroDiferente(
+                            resposta,
+                            60
+                        )
                     ]
                 ),
 
@@ -801,10 +1423,16 @@ function quizMatematica() {
     if (tipo === 3) {
 
         const a =
-            aleatorio(2, 100);
+            aleatorio(
+                2,
+                100
+            );
 
         const b =
-            aleatorio(2, 50);
+            aleatorio(
+                2,
+                50
+            );
 
         const resposta =
             a * b;
@@ -821,9 +1449,18 @@ function quizMatematica() {
                 opcoesQuiz(
                     resposta,
                     [
-                        numeroDiferente(resposta, 10),
-                        numeroDiferente(resposta, 20),
-                        numeroDiferente(resposta, 40)
+                        numeroDiferente(
+                            resposta,
+                            10
+                        ),
+                        numeroDiferente(
+                            resposta,
+                            20
+                        ),
+                        numeroDiferente(
+                            resposta,
+                            40
+                        )
                     ]
                 ),
 
@@ -833,10 +1470,16 @@ function quizMatematica() {
     }
 
     const a =
-        aleatorio(2, 30);
+        aleatorio(
+            2,
+            30
+        );
 
     const b =
-        aleatorio(2, 5);
+        aleatorio(
+            2,
+            5
+        );
 
     const resposta =
         a ** b;
@@ -853,9 +1496,18 @@ function quizMatematica() {
             opcoesQuiz(
                 resposta,
                 [
-                    numeroDiferente(resposta, 5),
-                    numeroDiferente(resposta, 10),
-                    numeroDiferente(resposta, 20)
+                    numeroDiferente(
+                        resposta,
+                        5
+                    ),
+                    numeroDiferente(
+                        resposta,
+                        10
+                    ),
+                    numeroDiferente(
+                        resposta,
+                        20
+                    )
                 ]
             ),
 
@@ -867,15 +1519,28 @@ function quizMatematica() {
 function quizSequencia() {
 
     const inicio =
-        aleatorio(1, 1000);
+        aleatorio(
+            1,
+            1000
+        );
 
     const passo =
-        aleatorio(2, 100);
+        aleatorio(
+            2,
+            100
+        );
 
-    const a = inicio;
-    const b = inicio + passo;
-    const c = inicio + passo * 2;
-    const d = inicio + passo * 3;
+    const a =
+        inicio;
+
+    const b =
+        inicio + passo;
+
+    const c =
+        inicio + passo * 2;
+
+    const d =
+        inicio + passo * 3;
 
     const resposta =
         inicio + passo * 4;
@@ -916,16 +1581,27 @@ function quizPorcentagem() {
     ];
 
     const p =
-        escolha(porcentagens);
+        escolha(
+            porcentagens
+        );
 
     const base =
-        aleatorio(2, 1000);
+        aleatorio(
+            2,
+            1000
+        );
 
     const total =
-        base * (100 / gcd(p, 100));
+        base *
+        (
+            100 /
+            gcd(p, 100)
+        );
 
     const resposta =
-        (total * p) / 100;
+        (
+            total * p
+        ) / 100;
 
     return {
 
@@ -940,7 +1616,10 @@ function quizPorcentagem() {
                 resposta,
                 [
                     resposta + base,
-                    Math.max(0, resposta - base),
+                    Math.max(
+                        0,
+                        resposta - base
+                    ),
                     resposta + base * 2
                 ]
             ),
@@ -950,11 +1629,9 @@ function quizPorcentagem() {
     };
 }
 
-/*
-=========================================================
-CIÊNCIA
-=========================================================
-*/
+// =======================================================
+// CIÊNCIA
+// =======================================================
 
 const quizCiencia = [
 
@@ -1011,7 +1688,9 @@ const quizCiencia = [
 function quizDeCiencia() {
 
     const item =
-        escolha(quizCiencia);
+        escolha(
+            quizCiencia
+        );
 
     return {
 
@@ -1028,15 +1707,15 @@ function quizDeCiencia() {
             ]),
 
         id:
-            `quiz-ciencia:${normalizar(item[0])}`
+            `quiz-ciencia:${normalizar(
+                item[0]
+            )}`
     };
 }
 
-/*
-=========================================================
-GEOGRAFIA
-=========================================================
-*/
+// =======================================================
+// GEOGRAFIA
+// =======================================================
 
 const quizGeografia = [
 
@@ -1087,7 +1766,9 @@ const quizGeografia = [
 function quizDeGeografia() {
 
     const item =
-        escolha(quizGeografia);
+        escolha(
+            quizGeografia
+        );
 
     return {
 
@@ -1104,15 +1785,15 @@ function quizDeGeografia() {
             ]),
 
         id:
-            `quiz-geografia:${normalizar(item[0])}`
+            `quiz-geografia:${normalizar(
+                item[0]
+            )}`
     };
 }
 
-/*
-=========================================================
-CONHECIMENTOS GERAIS
-=========================================================
-*/
+// =======================================================
+// CONHECIMENTOS GERAIS
+// =======================================================
 
 const quizGeral = [
 
@@ -1157,7 +1838,9 @@ const quizGeral = [
 function quizDeConhecimentosGerais() {
 
     const item =
-        escolha(quizGeral);
+        escolha(
+            quizGeral
+        );
 
     return {
 
@@ -1174,24 +1857,27 @@ function quizDeConhecimentosGerais() {
             ]),
 
         id:
-            `quiz-geral:${normalizar(item[0])}`
+            `quiz-geral:${normalizar(
+                item[0]
+            )}`
     };
 }
 
-/*
-=========================================================
-GERADOR PRINCIPAL DO QUIZ
-=========================================================
-*/
+// =======================================================
+// GERADOR PRINCIPAL DO QUIZ
+// =======================================================
 
-function gerarQuiz() {
+async function gerarQuiz() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "quiz",
         () => {
 
             const tipo =
-                aleatorio(1, 7);
+                aleatorio(
+                    1,
+                    7
+                );
 
             switch (tipo) {
 
@@ -1223,50 +1909,149 @@ function gerarQuiz() {
     );
 }
 
-/*
-=========================================================
-ADIVINHE A PALAVRA
-=========================================================
-*/
+// =======================================================
+// ADIVINHE A PALAVRA
+// =======================================================
 
 const palavras = [
 
-    ["Animal que mia.", "Gato"],
-    ["Animal conhecido por latir.", "Cão"],
-    ["Planeta onde vivemos.", "Terra"],
-    ["Fruta amarela muito conhecida.", "Banana"],
-    ["Lugar onde estudamos.", "Escola"],
-    ["Objeto usado para escrever.", "Caneta"],
-    ["Objeto usado para saber as horas.", "Relógio"],
-    ["Veículo com duas rodas e pedais.", "Bicicleta"],
-    ["Móvel usado para dormir.", "Cama"],
-    ["Objeto usado para abrir uma porta.", "Chave"],
-    ["Lugar onde encontramos muitos livros.", "Biblioteca"],
-    ["Objeto que protege da chuva.", "Guarda-chuva"],
-    ["Animal que produz leite.", "Vaca"],
-    ["Fruta geralmente vermelha e pequena.", "Morango"],
-    ["Objeto usado para cortar papel.", "Tesoura"],
-    ["Objeto usado para apagar o que foi escrito a lápis.", "Borracha"],
-    ["Lugar onde compramos medicamentos.", "Farmácia"],
-    ["Veículo que circula sobre trilhos.", "Comboio"],
-    ["Animal conhecido por ter uma tromba.", "Elefante"],
-    ["Fruta tropical de casca verde ou amarela.", "Manga"],
-    ["Objeto usado para iluminar no escuro.", "Lanterna"],
-    ["Lugar onde os aviões pousam.", "Aeroporto"],
-    ["Objeto usado para ouvir música sem alto-falante.", "Fone"],
-    ["Animal que vive na água e possui barbatanas.", "Peixe"],
-    ["Objeto usado para tirar fotografias.", "Câmara"]
+    [
+        "Animal que mia.",
+        "Gato"
+    ],
+
+    [
+        "Animal conhecido por latir.",
+        "Cão"
+    ],
+
+    [
+        "Planeta onde vivemos.",
+        "Terra"
+    ],
+
+    [
+        "Fruta amarela muito conhecida.",
+        "Banana"
+    ],
+
+    [
+        "Lugar onde estudamos.",
+        "Escola"
+    ],
+
+    [
+        "Objeto usado para escrever.",
+        "Caneta"
+    ],
+
+    [
+        "Objeto usado para saber as horas.",
+        "Relógio"
+    ],
+
+    [
+        "Veículo com duas rodas e pedais.",
+        "Bicicleta"
+    ],
+
+    [
+        "Móvel usado para dormir.",
+        "Cama"
+    ],
+
+    [
+        "Objeto usado para abrir uma porta.",
+        "Chave"
+    ],
+
+    [
+        "Lugar onde encontramos muitos livros.",
+        "Biblioteca"
+    ],
+
+    [
+        "Objeto que protege da chuva.",
+        "Guarda-chuva"
+    ],
+
+    [
+        "Animal que produz leite.",
+        "Vaca"
+    ],
+
+    [
+        "Fruta geralmente vermelha e pequena.",
+        "Morango"
+    ],
+
+    [
+        "Objeto usado para cortar papel.",
+        "Tesoura"
+    ],
+
+    [
+        "Objeto usado para apagar o que foi escrito a lápis.",
+        "Borracha"
+    ],
+
+    [
+        "Lugar onde compramos medicamentos.",
+        "Farmácia"
+    ],
+
+    [
+        "Veículo que circula sobre trilhos.",
+        "Comboio"
+    ],
+
+    [
+        "Animal conhecido por ter uma tromba.",
+        "Elefante"
+    ],
+
+    [
+        "Fruta tropical de casca verde ou amarela.",
+        "Manga"
+    ],
+
+    [
+        "Objeto usado para iluminar no escuro.",
+        "Lanterna"
+    ],
+
+    [
+        "Lugar onde os aviões pousam.",
+        "Aeroporto"
+    ],
+
+    [
+        "Objeto usado para ouvir música sem alto-falante.",
+        "Fone"
+    ],
+
+    [
+        "Animal que vive na água e possui barbatanas.",
+        "Peixe"
+    ],
+
+    [
+        "Objeto usado para tirar fotografias.",
+        "Câmara"
+    ]
 
 ];
 
-function gerarAdivinhePalavra() {
+async function gerarAdivinhePalavra() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "palavras",
         () => {
 
             const item =
-                escolha(palavras);
+                escolha(
+                    palavras
+                );
 
             return {
 
@@ -1278,21 +2063,21 @@ function gerarAdivinhePalavra() {
                     item[1],
 
                 id:
-                    `palavra:${normalizar(item[0])}`
+                    `palavra:${normalizar(
+                        item[0]
+                    )}`
             };
         }
     );
 }
 
-/*
-=========================================================
-PAR OU ÍMPAR
-=========================================================
-*/
+// =======================================================
+// PAR OU ÍMPAR
+// =======================================================
 
-function gerarParOuImpar() {
+async function gerarParOuImpar() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "par_impar",
         () => {
 
@@ -1319,15 +2104,13 @@ function gerarParOuImpar() {
     );
 }
 
-/*
-=========================================================
-MAIOR / MENOR
-=========================================================
-*/
+// =======================================================
+// MAIOR / MENOR
+// =======================================================
 
-function gerarMaiorMenor() {
+async function gerarMaiorMenor() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "maior_menor",
         () => {
 
@@ -1343,7 +2126,9 @@ function gerarMaiorMenor() {
                     999999999
                 );
 
-            while (a === b) {
+            while (
+                a === b
+            ) {
 
                 b =
                     aleatorio(
@@ -1372,15 +2157,13 @@ function gerarMaiorMenor() {
     );
 }
 
-/*
-=========================================================
-CONVERSÕES
-=========================================================
-*/
+// =======================================================
+// CONVERSÕES
+// =======================================================
 
-function gerarConversao() {
+async function gerarConversao() {
 
-    return novoDesafio(
+    return await novoDesafio(
         "conversao",
         () => {
 
@@ -1390,7 +2173,9 @@ function gerarConversao() {
                     6
                 );
 
-            if (tipo === 1) {
+            if (
+                tipo === 1
+            ) {
 
                 const metros =
                     aleatorio(
@@ -1413,7 +2198,9 @@ function gerarConversao() {
                 };
             }
 
-            if (tipo === 2) {
+            if (
+                tipo === 2
+            ) {
 
                 const km =
                     aleatorio(
@@ -1436,7 +2223,9 @@ function gerarConversao() {
                 };
             }
 
-            if (tipo === 3) {
+            if (
+                tipo === 3
+            ) {
 
                 const horas =
                     aleatorio(
@@ -1459,7 +2248,9 @@ function gerarConversao() {
                 };
             }
 
-            if (tipo === 4) {
+            if (
+                tipo === 4
+            ) {
 
                 const kg =
                     aleatorio(
@@ -1482,7 +2273,9 @@ function gerarConversao() {
                 };
             }
 
-            if (tipo === 5) {
+            if (
+                tipo === 5
+            ) {
 
                 const litros =
                     aleatorio(
@@ -1528,13 +2321,11 @@ function gerarConversao() {
     );
 }
 
-/*
-=========================================================
-DESAFIO GERAL
-=========================================================
-*/
+// =======================================================
+// DESAFIO GERAL
+// =======================================================
 
-function gerarDesafio() {
+async function gerarDesafio() {
 
     const categorias = [
 
@@ -1546,7 +2337,7 @@ function gerarDesafio() {
         "potencia",
         "equacao",
         "sequencia",
-        "charada",
+        "charadas",
         "verdadeiro_falso",
         "quiz",
         "palavras",
@@ -1557,65 +2348,80 @@ function gerarDesafio() {
     ];
 
     const categoria =
-        escolha(categorias);
+        escolha(
+            categorias
+        );
 
-    switch (categoria) {
+    switch (
+        categoria
+    ) {
 
         case "soma":
-            return gerarSoma();
+            return await gerarSoma();
 
         case "subtracao":
-            return gerarSubtracao();
+            return await gerarSubtracao();
 
         case "multiplicacao":
-            return gerarMultiplicacao();
+            return await gerarMultiplicacao();
 
         case "divisao":
-            return gerarDivisao();
+            return await gerarDivisao();
 
         case "porcentagem":
-            return gerarPorcentagem();
+            return await gerarPorcentagem();
 
         case "potencia":
-            return gerarPotencia();
+            return await gerarPotencia();
 
         case "equacao":
-            return gerarEquacao();
+            return await gerarEquacao();
 
         case "sequencia":
-            return gerarSequencia();
+            return await gerarSequencia();
 
-        case "charada":
-            return gerarCharada();
+        case "charadas":
+            return await gerarCharada();
 
         case "verdadeiro_falso":
-            return gerarVerdadeiroFalso();
+            return await gerarVerdadeiroFalso();
 
         case "quiz":
-            return gerarQuiz();
+            return await gerarQuiz();
 
         case "palavras":
-            return gerarAdivinhePalavra();
+            return await gerarAdivinhePalavra();
 
         case "par_impar":
-            return gerarParOuImpar();
+            return await gerarParOuImpar();
 
         case "maior_menor":
-            return gerarMaiorMenor();
+            return await gerarMaiorMenor();
 
         case "conversao":
-            return gerarConversao();
+            return await gerarConversao();
 
         default:
-            return gerarSoma();
+            return await gerarSoma();
     }
 }
 
-/*
-=========================================================
-EXPORTAÇÃO
-=========================================================
-*/
+// =======================================================
+// RESETAR CATEGORIA
+// =======================================================
+
+function resetarCategoria(
+    categoria
+) {
+
+    delete usadas[categoria];
+
+    salvarUsadas();
+}
+
+// =======================================================
+// EXPORTAÇÃO
+// =======================================================
 
 module.exports = {
 
@@ -1636,12 +2442,6 @@ module.exports = {
     gerarConversao,
     gerarDesafio,
     embaralhar,
-
-    resetarCategoria(categoria) {
-
-        delete usadas[categoria];
-
-        salvarUsadas();
-    }
+    resetarCategoria
 
 };
