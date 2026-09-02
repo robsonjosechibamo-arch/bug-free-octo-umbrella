@@ -699,13 +699,10 @@ async function enviarDesafio(msg, tipo) {
             }
         );
 
-    } 
-catch (erro) {
+    } catch (erro) {
 
-        console.error(
-            "❌ Erro ao gerar desafio:",
-            erro
-        );
+        console.error("❌ Erro ao gerar desafio:",
+            erro);
 
         bot.sendMessage(
             chatId,
