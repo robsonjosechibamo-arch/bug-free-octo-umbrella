@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node bot.js"
   },
-  "dependencies": "@google/genai": "^1.0.0" {
+  "dependencies": "groq-sdk": "^0.37.0" {
     "node-telegram-bot-api": "^0.66.0",
     "archiver": "^7.0.1"
   }
