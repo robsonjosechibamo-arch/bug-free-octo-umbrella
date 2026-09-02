@@ -51,7 +51,6 @@ try {
     usadas = {};
 }
 
-
 /*
 =========================================================
 SALVAR PERGUNTAS USADAS
@@ -59,9 +58,7 @@ SALVAR PERGUNTAS USADAS
 */
 
 function salvarUsadas() {
-
     try {
-
         fs.writeFileSync(
             USED_FILE,
             JSON.stringify(
@@ -71,16 +68,13 @@ function salvarUsadas() {
             ),
             "utf8"
         );
-
     } catch (erro) {
-
         console.error(
             "❌ Erro ao salvar perguntas usadas:",
             erro.message
         );
     }
 }
-
 
 /*
 =========================================================
@@ -89,16 +83,13 @@ UTILITÁRIOS
 */
 
 function aleatorio(min, max) {
-
     return Math.floor(
         Math.random() *
         (max - min + 1)
     ) + min;
 }
 
-
 function escolha(lista) {
-
     if (!Array.isArray(lista) || !lista.length) {
         throw new Error("Lista vazia.");
     }
@@ -111,50 +102,34 @@ function escolha(lista) {
     ];
 }
 
-
 function embaralhar(lista) {
-
     return [...lista].sort(
         () => Math.random() - 0.5
     );
 }
 
-
 function normalizar(texto) {
-
     return String(texto)
-
         .toLowerCase()
-
         .normalize("NFD")
-
         .replace(
             /[\u0300-\u036f]/g,
             ""
         )
-
         .replace(
             /[!?.,;:()[\]{}"'`]/g,
             ""
         )
-
         .replace(
             /\s+/g,
             " "
         )
-
         .trim();
 }
-
 
 /*
 =========================================================
 ANTI-REPETIÇÃO
-=========================================================
-
-Não existe mais o limite artificial de 100000 perguntas.
-
-O sistema continua guardando os IDs das perguntas usadas.
 =========================================================
 */
 
@@ -173,7 +148,11 @@ function novoDesafio(categoria, criar) {
     =====================================================
     */
 
-    for (let tentativa = 0; tentativa < 1000; tentativa++) {
+    for (
+        let tentativa = 0;
+        tentativa < 1000;
+        tentativa++
+    ) {
 
         const pergunta = criar();
 
@@ -202,120 +181,6 @@ function novoDesafio(categoria, criar) {
     /*
     =====================================================
     CATÁLOGO ESGOTADO
-    =====================================================
-
-    Algumas categorias possuem um catálogo fixo
-    (Quiz, Verdadeiro/Falso, Charadas, Palavra).
-
-    Quando todas forem usadas, começamos um novo ciclo
-    em vez de parar o bot.
-    =====================================================
-    */
-function novoDesafio(categoria, criar) {
-
-    if (!usadas[categoria]) {
-        usadas[categoria] = [];
-    }
-
-    let jaUsadas =
-        new Set(usadas[categoria]);
-
-    /*
-    =====================================================
-    TENTAR GERAR UMA PERGUNTA NOVA
-    =====================================================
-    */
-
-    for (let tentativa = 0; tentativa < 1000; tentativa++) {
-
-        const pergunta = criar();
-
-        if (!pergunta) {
-            continue;
-        }
-
-        const id =
-            pergunta.id ||
-            `${categoria}:${normalizar(
-                pergunta.pergunta
-            )}`;
-
-        if (!jaUsadas.has(id)) {
-
-            pergunta.id = id;
-
-            usadas[categoria].push(id);
-
-            salvarUsadas();
-
-            return pergunta;
-        }
-    }
-
-    /*
-    =====================================================
-    CATÁLOGO ESGOTADO
-    =====================================================
-
-    Algumas categorias possuem um catálogo fixo
-    (Quiz, Verdadeiro/Falso, Charadas, Palavra).
-
-    Quando todas forem usadas, começamos um novo ciclo
-    em vez de parar o bot.
-    =====================================================
-    */
-
-    function novoDesafio(categoria, criar) {
-
-    if (!usadas[categoria]) {
-        usadas[categoria] = [];
-    }
-
-    let jaUsadas =
-        new Set(usadas[categoria]);
-
-    /*
-    =====================================================
-    TENTAR GERAR UMA PERGUNTA NOVA
-    =====================================================
-    */
-
-    for (let tentativa = 0; tentativa < 1000; tentativa++) {
-
-        const pergunta = criar();
-
-        if (!pergunta) {
-            continue;
-        }
-
-        const id =
-            pergunta.id ||
-            `${categoria}:${normalizar(
-                pergunta.pergunta
-            )}`;
-
-        if (!jaUsadas.has(id)) {
-
-            pergunta.id = id;
-
-            usadas[categoria].push(id);
-
-            salvarUsadas();
-
-            return pergunta;
-        }
-    }
-
-    /*
-    =====================================================
-    CATÁLOGO ESGOTADO
-    =====================================================
-
-    Algumas categorias possuem um catálogo fixo
-    (Quiz, Verdadeiro/Falso, Charadas, Palavra).
-
-    Quando todas forem usadas, começamos um novo ciclo
-    em vez de parar o bot.
     =====================================================
     */
 
@@ -353,8 +218,7 @@ function novoDesafio(categoria, criar) {
 
     return novaPergunta;
 }
-    
-    
+
 /*
 =========================================================
 MATEMÁTICA
@@ -394,7 +258,6 @@ function gerarSoma() {
     );
 }
 
-
 function gerarSubtracao() {
 
     return novoDesafio(
@@ -428,7 +291,6 @@ function gerarSubtracao() {
     );
 }
 
-
 function gerarMultiplicacao() {
 
     return novoDesafio(
@@ -461,7 +323,6 @@ function gerarMultiplicacao() {
         }
     );
 }
-
 
 function gerarDivisao() {
 
@@ -500,7 +361,6 @@ function gerarDivisao() {
     );
 }
 
-
 function gcd(a, b) {
 
     while (b) {
@@ -514,7 +374,6 @@ function gcd(a, b) {
 
     return a;
 }
-
 
 function gerarPorcentagem() {
 
@@ -571,7 +430,6 @@ function gerarPorcentagem() {
     );
 }
 
-
 function gerarPotencia() {
 
     return novoDesafio(
@@ -606,7 +464,6 @@ function gerarPotencia() {
         }
     );
 }
-
 
 function gerarEquacao() {
 
@@ -645,7 +502,6 @@ function gerarEquacao() {
         }
     );
 }
-
 
 function gerarSequencia() {
 
@@ -696,7 +552,6 @@ function gerarSequencia() {
     );
 }
 
-
 /*
 =========================================================
 CHARADAS
@@ -706,57 +561,32 @@ CHARADAS
 const charadas = [
 
     ["Quanto mais se tira, maior fica. O que é?", "Buraco"],
-
     ["Tem dentes, mas não morde. O que é?", "Pente"],
-
     ["Tem mãos, mas não bate palmas. O que é?", "Relógio"],
-
     ["Fica molhada enquanto seca. O que é?", "Toalha"],
-
     ["Tem pescoço, mas não tem cabeça. O que é?", "Garrafa"],
-
     ["Sobe e desce, mas fica no mesmo lugar. O que é?", "Escada"],
-
     ["Corre sem ter pernas. O que é?", "Água"],
-
     ["Tem cidades, rios e estradas, mas não tem casas. O que é?", "Mapa"],
-
     ["Tem um olho, mas não consegue ver. O que é?", "Agulha"],
-
     ["Pode ser quebrado sem ser tocado. O que é?", "Silêncio"],
-
     ["Tem folhas, mas não é árvore. O que é?", "Livro"],
-
     ["Tem teclas, mas não abre portas. O que é?", "Teclado"],
-
     ["Tem pernas, mas não anda. O que é?", "Mesa"],
-
     ["É seu, mas outras pessoas usam mais que você. O que é?", "Nome"],
-
     ["Tem cabeça e cauda, mas não tem corpo. O que é?", "Moeda"],
-
     ["Quanto mais quente fica, mais fresca parece. O que é?", "Sombra"],
-
     ["Tem uma boca, mas não fala. O que é?", "Rio"],
-
     ["Tem olhos, mas não vê. O que é?", "Batata"],
-
     ["Entra na água e não fica molhado. O que é?", "Reflexo"],
-
     ["Quanto mais cresce, menos se vê. O que é?", "Escuridão"],
-
     ["Tem asas, mas não voa. O que é?", "Moinho"],
-
     ["Tem quatro pernas e não consegue andar. O que é?", "Cadeira"],
-
     ["Pode viajar pelo mundo sem sair do lugar. O que é?", "Selo"],
-
     ["Tem uma cama, mas nunca dorme. O que é?", "Rio"],
-
     ["Tem muitas palavras, mas nunca fala. O que é?", "Dicionário"]
 
 ];
-
 
 function gerarCharada() {
 
@@ -782,7 +612,6 @@ function gerarCharada() {
     );
 }
 
-
 /*
 =========================================================
 VERDADEIRO / FALSO
@@ -792,59 +621,33 @@ VERDADEIRO / FALSO
 const verdadeiroFalso = [
 
     ["A Terra gira em torno do Sol.", "V"],
-
     ["O Sol é um planeta.", "F"],
-
     ["Moçambique fica em África.", "V"],
-
     ["Um triângulo possui quatro lados.", "F"],
-
     ["A Lua é um satélite natural da Terra.", "V"],
-
     ["O número 2 é ímpar.", "F"],
-
     ["A água é composta por hidrogénio e oxigénio.", "V"],
-
     ["O Brasil fica em África.", "F"],
-
     ["Uma hora possui 60 minutos.", "V"],
-
     ["Uma semana possui 10 dias.", "F"],
-
     ["O gelo é água no estado sólido.", "V"],
-
     ["A baleia é um mamífero.", "V"],
-
     ["Um quilómetro possui 1000 metros.", "V"],
-
     ["Marte é conhecido como Planeta Vermelho.", "V"],
-
     ["O oxigénio é um metal.", "F"],
-
     ["A Terra possui um satélite natural conhecido como Lua.", "V"],
-
     ["O Japão fica na Europa.", "F"],
-
     ["O número 10 é maior que o número 5.", "V"],
-
     ["O Sol é uma estrela.", "V"],
-
     ["A água ferve normalmente a 100 °C ao nível do mar.", "V"],
-
     ["Um quadrado possui três lados.", "F"],
-
     ["O continente africano é atravessado pelo Equador.", "V"],
-
     ["Mercúrio é o planeta mais próximo do Sol.", "V"],
-
     ["A baleia é um peixe.", "F"],
-
     ["O ser humano adulto normalmente possui 206 ossos.", "V"]
 
 ];
 
-
-function gerarVerdadeiroFalso() {
 function gerarVerdadeiroFalso() {
 
     return novoDesafio(
@@ -877,24 +680,9 @@ function gerarVerdadeiroFalso() {
     );
 }
 
-
 /*
 =========================================================
-🌍 QUIZ DINÂMICO
-=========================================================
-
-O Quiz não depende mais de um pequeno catálogo.
-
-Tipos:
-- Matemática
-- Sequência
-- Porcentagem
-- Ciência
-- Espaço
-- Geografia
-- Conhecimentos gerais
-
-Cada pergunta recebe um ID diferente.
+QUIZ
 =========================================================
 */
 
@@ -914,9 +702,10 @@ function opcoesQuiz(resposta, alternativas) {
         }
     }
 
-    return embaralhar(unicas.slice(0, 4));
+    return embaralhar(
+        unicas.slice(0, 4)
+    );
 }
-
 
 function numeroDiferente(valor, distancia = 1) {
 
@@ -935,13 +724,6 @@ function numeroDiferente(valor, distancia = 1) {
 
     return novo;
 }
-
-
-/*
-=========================================================
-🧮 QUIZ DE MATEMÁTICA
-=========================================================
-*/
 
 function quizMatematica() {
 
@@ -982,7 +764,6 @@ function quizMatematica() {
         };
     }
 
-
     if (tipo === 2) {
 
         const a =
@@ -1016,7 +797,6 @@ function quizMatematica() {
                 `quiz-sub:${a}:${b}`
         };
     }
-
 
     if (tipo === 3) {
 
@@ -1052,7 +832,6 @@ function quizMatematica() {
         };
     }
 
-
     const a =
         aleatorio(2, 30);
 
@@ -1084,13 +863,6 @@ function quizMatematica() {
             `quiz-pot:${a}:${b}`
     };
 }
-
-
-/*
-=========================================================
-🔢 QUIZ DE SEQUÊNCIA
-=========================================================
-*/
 
 function quizSequencia() {
 
@@ -1131,13 +903,6 @@ function quizSequencia() {
             `quiz-seq:${inicio}:${passo}`
     };
 }
-
-
-/*
-=========================================================
-📊 QUIZ DE PORCENTAGEM
-=========================================================
-*/
 
 function quizPorcentagem() {
 
@@ -1185,10 +950,9 @@ function quizPorcentagem() {
     };
 }
 
-
 /*
 =========================================================
-🔬 CIÊNCIA
+CIÊNCIA
 =========================================================
 */
 
@@ -1244,7 +1008,6 @@ const quizCiencia = [
 
 ];
 
-
 function quizDeCiencia() {
 
     const item =
@@ -1269,10 +1032,9 @@ function quizDeCiencia() {
     };
 }
 
-
 /*
 =========================================================
-🌍 GEOGRAFIA
+GEOGRAFIA
 =========================================================
 */
 
@@ -1322,7 +1084,6 @@ const quizGeografia = [
 
 ];
 
-
 function quizDeGeografia() {
 
     const item =
@@ -1347,10 +1108,9 @@ function quizDeGeografia() {
     };
 }
 
-
 /*
 =========================================================
-📚 CONHECIMENTOS GERAIS
+CONHECIMENTOS GERAIS
 =========================================================
 */
 
@@ -1394,7 +1154,6 @@ const quizGeral = [
 
 ];
 
-
 function quizDeConhecimentosGerais() {
 
     const item =
@@ -1419,10 +1178,9 @@ function quizDeConhecimentosGerais() {
     };
 }
 
-
 /*
 =========================================================
-🌍 GERADOR PRINCIPAL DO QUIZ
+GERADOR PRINCIPAL DO QUIZ
 =========================================================
 */
 
@@ -1465,9 +1223,6 @@ function gerarQuiz() {
     );
 }
 
-
-
-
 /*
 =========================================================
 ADIVINHE A PALAVRA
@@ -1477,57 +1232,32 @@ ADIVINHE A PALAVRA
 const palavras = [
 
     ["Animal que mia.", "Gato"],
-
     ["Animal conhecido por latir.", "Cão"],
-
     ["Planeta onde vivemos.", "Terra"],
-
     ["Fruta amarela muito conhecida.", "Banana"],
-
     ["Lugar onde estudamos.", "Escola"],
-
     ["Objeto usado para escrever.", "Caneta"],
-
     ["Objeto usado para saber as horas.", "Relógio"],
-
     ["Veículo com duas rodas e pedais.", "Bicicleta"],
-
     ["Móvel usado para dormir.", "Cama"],
-
     ["Objeto usado para abrir uma porta.", "Chave"],
-
     ["Lugar onde encontramos muitos livros.", "Biblioteca"],
-
     ["Objeto que protege da chuva.", "Guarda-chuva"],
-
     ["Animal que produz leite.", "Vaca"],
-
     ["Fruta geralmente vermelha e pequena.", "Morango"],
-
     ["Objeto usado para cortar papel.", "Tesoura"],
-
     ["Objeto usado para apagar o que foi escrito a lápis.", "Borracha"],
-
     ["Lugar onde compramos medicamentos.", "Farmácia"],
-
     ["Veículo que circula sobre trilhos.", "Comboio"],
-
     ["Animal conhecido por ter uma tromba.", "Elefante"],
-
     ["Fruta tropical de casca verde ou amarela.", "Manga"],
-
     ["Objeto usado para iluminar no escuro.", "Lanterna"],
-
     ["Lugar onde os aviões pousam.", "Aeroporto"],
-
     ["Objeto usado para ouvir música sem alto-falante.", "Fone"],
-
     ["Animal que vive na água e possui barbatanas.", "Peixe"],
-
     ["Objeto usado para tirar fotografias.", "Câmara"]
 
 ];
-
 
 function gerarAdivinhePalavra() {
 
@@ -1553,7 +1283,6 @@ function gerarAdivinhePalavra() {
         }
     );
 }
-
 
 /*
 =========================================================
@@ -1589,7 +1318,6 @@ function gerarParOuImpar() {
         }
     );
 }
-
 
 /*
 =========================================================
@@ -1644,7 +1372,6 @@ function gerarMaiorMenor() {
     );
 }
 
-
 /*
 =========================================================
 CONVERSÕES
@@ -1662,7 +1389,6 @@ function gerarConversao() {
                     1,
                     6
                 );
-
 
             if (tipo === 1) {
 
@@ -1687,7 +1413,6 @@ function gerarConversao() {
                 };
             }
 
-
             if (tipo === 2) {
 
                 const km =
@@ -1710,7 +1435,6 @@ function gerarConversao() {
                         `m:${km}`
                 };
             }
-
 
             if (tipo === 3) {
 
@@ -1735,7 +1459,6 @@ function gerarConversao() {
                 };
             }
 
-
             if (tipo === 4) {
 
                 const kg =
@@ -1758,7 +1481,6 @@ function gerarConversao() {
                         `g:${kg}`
                 };
             }
-
 
             if (tipo === 5) {
 
@@ -1783,7 +1505,6 @@ function gerarConversao() {
                 };
             }
 
-
             const minutos =
                 aleatorio(
                     1,
@@ -1807,17 +1528,9 @@ function gerarConversao() {
     );
 }
 
-
 /*
 =========================================================
 DESAFIO GERAL
-=========================================================
-
-Mistura todas as categorias disponíveis.
-
-O index.js pode chamar:
-
-gerarDesafio()
 =========================================================
 */
 
@@ -1845,7 +1558,6 @@ function gerarDesafio() {
 
     const categoria =
         escolha(categorias);
-
 
     switch (categoria) {
 
@@ -1899,7 +1611,6 @@ function gerarDesafio() {
     }
 }
 
-
 /*
 =========================================================
 EXPORTAÇÃO
@@ -1923,13 +1634,7 @@ module.exports = {
     gerarParOuImpar,
     gerarMaiorMenor,
     gerarConversao,
-
-    /*
-    NOVO:
-    */
-
     gerarDesafio,
-
     embaralhar,
 
     resetarCategoria(categoria) {
