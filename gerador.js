@@ -164,18 +164,16 @@ function novoDesafio(categoria, criar) {
         usadas[categoria] = [];
     }
 
-    const jaUsadas =
+    let jaUsadas =
         new Set(usadas[categoria]);
 
     /*
-    Tenta criar vários desafios diferentes.
+    =====================================================
+    TENTAR GERAR UMA PERGUNTA NOVA
+    =====================================================
     */
 
-    for (
-        let tentativa = 0;
-        tentativa < 1000;
-        tentativa++
-    ) {
+    for (let tentativa = 0; tentativa < 1000; tentativa++) {
 
         const pergunta = criar();
 
@@ -188,10 +186,6 @@ function novoDesafio(categoria, criar) {
             `${categoria}:${normalizar(
                 pergunta.pergunta
             )}`;
-
-        /*
-        Ainda não foi usada.
-        */
 
         if (!jaUsadas.has(id)) {
 
@@ -206,16 +200,161 @@ function novoDesafio(categoria, criar) {
     }
 
     /*
-    Se uma categoria baseada em catálogo esgotar,
-    informamos claramente o motivo.
+    =====================================================
+    CATÁLOGO ESGOTADO
+    =====================================================
+
+    Algumas categorias possuem um catálogo fixo
+    (Quiz, Verdadeiro/Falso, Charadas, Palavra).
+
+    Quando todas forem usadas, começamos um novo ciclo
+    em vez de parar o bot.
+    =====================================================
+    */
+function novoDesafio(categoria, criar) {
+
+    if (!usadas[categoria]) {
+        usadas[categoria] = [];
+    }
+
+    let jaUsadas =
+        new Set(usadas[categoria]);
+
+    /*
+    =====================================================
+    TENTAR GERAR UMA PERGUNTA NOVA
+    =====================================================
     */
 
-    throw new Error(
-        `A categoria "${categoria}" ficou sem novos desafios disponíveis.`
+    for (let tentativa = 0; tentativa < 1000; tentativa++) {
+
+        const pergunta = criar();
+
+        if (!pergunta) {
+            continue;
+        }
+
+        const id =
+            pergunta.id ||
+            `${categoria}:${normalizar(
+                pergunta.pergunta
+            )}`;
+
+        if (!jaUsadas.has(id)) {
+
+            pergunta.id = id;
+
+            usadas[categoria].push(id);
+
+            salvarUsadas();
+
+            return pergunta;
+        }
+    }
+
+    /*
+    =====================================================
+    CATÁLOGO ESGOTADO
+    =====================================================
+
+    Algumas categorias possuem um catálogo fixo
+    (Quiz, Verdadeiro/Falso, Charadas, Palavra).
+
+    Quando todas forem usadas, começamos um novo ciclo
+    em vez de parar o bot.
+    =====================================================
+    */
+
+    function novoDesafio(categoria, criar) {
+
+    if (!usadas[categoria]) {
+        usadas[categoria] = [];
+    }
+
+    let jaUsadas =
+        new Set(usadas[categoria]);
+
+    /*
+    =====================================================
+    TENTAR GERAR UMA PERGUNTA NOVA
+    =====================================================
+    */
+
+    for (let tentativa = 0; tentativa < 1000; tentativa++) {
+
+        const pergunta = criar();
+
+        if (!pergunta) {
+            continue;
+        }
+
+        const id =
+            pergunta.id ||
+            `${categoria}:${normalizar(
+                pergunta.pergunta
+            )}`;
+
+        if (!jaUsadas.has(id)) {
+
+            pergunta.id = id;
+
+            usadas[categoria].push(id);
+
+            salvarUsadas();
+
+            return pergunta;
+        }
+    }
+
+    /*
+    =====================================================
+    CATÁLOGO ESGOTADO
+    =====================================================
+
+    Algumas categorias possuem um catálogo fixo
+    (Quiz, Verdadeiro/Falso, Charadas, Palavra).
+
+    Quando todas forem usadas, começamos um novo ciclo
+    em vez de parar o bot.
+    =====================================================
+    */
+
+    console.log(
+        `♻️ Categoria "${categoria}" esgotada. Reiniciando ciclo.`
     );
+
+    usadas[categoria] = [];
+
+    salvarUsadas();
+
+    /*
+    Gerar novamente depois de limpar o histórico.
+    */
+
+    const novaPergunta = criar();
+
+    if (!novaPergunta) {
+        throw new Error(
+            `Não foi possível gerar uma pergunta para "${categoria}".`
+        );
+    }
+
+    const novoId =
+        novaPergunta.id ||
+        `${categoria}:${normalizar(
+            novaPergunta.pergunta
+        )}`;
+
+    novaPergunta.id = novoId;
+
+    usadas[categoria].push(novoId);
+
+    salvarUsadas();
+
+    return novaPergunta;
 }
-
-
+    
+    
 /*
 =========================================================
 MATEMÁTICA
@@ -706,6 +845,7 @@ const verdadeiroFalso = [
 
 
 function gerarVerdadeiroFalso() {
+function gerarVerdadeiroFalso() {
 
     return novoDesafio(
         "verdadeiro_falso",
@@ -720,11 +860,15 @@ function gerarVerdadeiroFalso() {
 
                 pergunta:
                     `✅ VERDADEIRO OU FALSO\n\n` +
-                    `${item[0]}\n\n` +
-                    `Responde V ou F.`,
+                    `${item[0]}`,
 
                 resposta:
                     item[1],
+
+                opcoes: [
+                    "V",
+                    "F"
+                ],
 
                 id:
                     `vf:${normalizar(item[0])}`
