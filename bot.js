@@ -388,12 +388,12 @@ function menuJogos() {
 }
 
             
-   /* =========================================================
-   ENVIAR DESAFIO
+/* =========================================================
+   🎯 ENVIAR DESAFIO
    COM OPÇÕES EM BOTÕES
 ========================================================= */
 
-function enviarDesafio(msg, tipo) {
+async function enviarDesafio(msg, tipo) {
 
     const chatId = msg.chat.id;
 
@@ -404,79 +404,215 @@ function enviarDesafio(msg, tipo) {
         switch (tipo) {
 
             case "soma":
-                pergunta = gerarSoma();
+                pergunta = await gerarSoma();
                 break;
 
             case "subtracao":
-                pergunta = gerarSubtracao();
+                pergunta = await gerarSubtracao();
                 break;
 
             case "multiplicacao":
-                pergunta = gerarMultiplicacao();
+                pergunta = await gerarMultiplicacao();
                 break;
 
             case "divisao":
-                pergunta = gerarDivisao();
+                pergunta = await gerarDivisao();
                 break;
 
             case "porcentagem":
-                pergunta = gerarPorcentagem();
+                pergunta = await gerarPorcentagem();
                 break;
 
             case "potencia":
-                pergunta = gerarPotencia();
+                pergunta = await gerarPotencia();
                 break;
 
             case "equacao":
-                pergunta = gerarEquacao();
+                pergunta = await gerarEquacao();
                 break;
 
             case "sequencia":
-                pergunta = gerarSequencia();
+                pergunta = await gerarSequencia();
                 break;
 
             case "charada":
-                pergunta = gerarCharada();
+                pergunta = await gerarCharada();
                 break;
 
             case "vf":
-                pergunta = gerarVerdadeiroFalso();
+                pergunta = await gerarVerdadeiroFalso();
                 break;
 
             case "quiz":
-                pergunta = gerarQuiz();
+                pergunta = await gerarQuiz();
                 break;
 
             case "palavra":
-                pergunta = gerarAdivinhePalavra();
+                pergunta = await gerarAdivinhePalavra();
                 break;
 
             case "parimpar":
-                pergunta = gerarParOuImpar();
+                pergunta = await gerarParOuImpar();
                 break;
 
             case "maior":
-                pergunta = gerarMaiorMenor();
+                pergunta = await gerarMaiorMenor();
                 break;
 
             case "conversao":
-                pergunta = gerarConversao();
+                pergunta = await gerarConversao();
                 break;
 
             case "desafio":
-                pergunta = gerarDesafio();
+                pergunta = await gerarDesafio();
                 break;
 
             default:
-                pergunta = gerarDesafio();
+                pergunta = await gerarDesafio();
                 break;
         }
 
-        if (!pergunta) {
+        /* =================================================
+           VERIFICAR RESULTADO
+        ================================================= */
+
+        if (
+            !pergunta ||
+            typeof pergunta !== "object" ||
+            !pergunta.pergunta
+        ) {
+
             throw new Error(
-                "O gerador não devolveu uma pergunta."
+                "O gerador não devolveu uma pergunta válida."
             );
         }
+
+        console.log(
+            "🎯 Desafio gerado:",
+            JSON.stringify(
+                pergunta,
+                null,
+                2
+            )
+        );
+
+        /* =================================================
+           GUARDAR PERGUNTA ATIVA
+        ================================================= */
+
+        perguntasAtivas.set(
+            chatId,
+            pergunta
+        );
+
+        let texto =
+            String(
+                pergunta.pergunta
+            );
+
+        /* =================================================
+           CRIAR BOTÕES
+        ================================================= */
+
+        let teclado = null;
+
+        if (
+            Array.isArray(pergunta.opcoes) &&
+            pergunta.opcoes.length > 0
+        ) {
+
+            teclado = [];
+
+            pergunta.opcoes.forEach(
+                (opcao, indice) => {
+
+                    const letra =
+                        String.fromCharCode(
+                            65 + indice
+                        );
+
+                    teclado.push([
+                        {
+                            text:
+                                `${letra}) ${String(opcao)}`,
+
+                            callback_data:
+                                `quiz_resposta:${chatId}:${indice}`
+                        }
+                    ]);
+                }
+            );
+
+            texto +=
+                "\n\n👇 *Escolhe uma resposta:*";
+
+        } else {
+
+            texto +=
+                "\n\n✍️ Envia a tua resposta.";
+        }
+
+        texto +=
+            "\n\n🏆 Vale 10 pontos.";
+
+        /* =================================================
+           ENVIAR PARA TELEGRAM
+        ================================================= */
+
+        await bot.sendMessage(
+            chatId,
+            texto,
+            {
+                parse_mode: "Markdown",
+
+                reply_markup:
+                    teclado
+                        ? {
+                            inline_keyboard:
+                                teclado
+                        }
+                        : menuJogos()
+            }
+        );
+
+        console.log(
+            `✅ Desafio enviado para o chat ${chatId}`
+        );
+
+    } catch (erro) {
+
+        console.error(
+            "❌ ERRO AO GERAR/ENVIAR DESAFIO:",
+            erro
+        );
+
+        perguntasAtivas.delete(
+            chatId
+        );
+
+        try {
+
+            await bot.sendMessage(
+                chatId,
+
+                "⚠️ Não consegui criar um desafio novo agora.\n\n" +
+                `🔎 Erro: ${erro.message}`,
+
+                {
+                    reply_markup:
+                        menuJogos()
+                }
+            );
+
+        } catch (erroTelegram) {
+
+            console.error(
+                "❌ Erro ao enviar mensagem de erro:",
+                erroTelegram.message
+            );
+        }
+    }
+}
 
         /* =================================================
            GUARDAR PERGUNTA ATIVA
