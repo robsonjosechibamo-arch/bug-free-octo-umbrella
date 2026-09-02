@@ -383,9 +383,10 @@ function menuJogos() {
     };
 }
 
-
-/* =========================================================
+            
+   /* =========================================================
    ENVIAR DESAFIO
+   COM OPÇÕES EM BOTÕES
 ========================================================= */
 
 function enviarDesafio(msg, tipo) {
@@ -473,15 +474,21 @@ function enviarDesafio(msg, tipo) {
             );
         }
 
-        perguntasAtivas.set(chatId, pergunta);
+        /* =================================================
+           GUARDAR PERGUNTA ATIVA
+        ================================================= */
 
-        let texto = pergunta.pergunta;
+        perguntasAtivas.set(
+            chatId,
+            pergunta
+        );
 
-        /*
-        =============================================
-        OPÇÕES COM BOTÕES
-        =============================================
-        */
+        let texto =
+            pergunta.pergunta;
+
+        /* =================================================
+           CRIAR BOTÕES DAS OPÇÕES
+        ================================================= */
 
         let teclado = null;
 
@@ -502,7 +509,9 @@ function enviarDesafio(msg, tipo) {
 
                     teclado.push([
                         {
-                            text: `${letra}) ${opcao}`,
+                            text:
+                                `${letra}) ${opcao}`,
+
                             callback_data:
                                 `quiz_resposta:${chatId}:${indice}`
                         }
@@ -517,11 +526,14 @@ function enviarDesafio(msg, tipo) {
 
             texto +=
                 "\n\n✍️ Envia a tua resposta.";
-
         }
 
         texto +=
             "\n\n🏆 Vale 10 pontos.";
+
+        /* =================================================
+           ENVIAR PERGUNTA
+        ================================================= */
 
         bot.sendMessage(
             chatId,
@@ -544,7 +556,6 @@ function enviarDesafio(msg, tipo) {
                     "❌ Erro ao enviar desafio:",
                     erro.message
                 );
-
             }
         );
 
@@ -569,146 +580,7 @@ function enviarDesafio(msg, tipo) {
             () => {}
         );
     }
-        }
-
-
-            
-
-
-            /*
-            =============================================
-            NOVO DESAFIO
-            =============================================
-            */
-
-            case "desafio":
-
-                pergunta =
-                    gerarDesafio();
-
-                break;
-
-
-            default:
-
-                pergunta =
-                    gerarDesafio();
-
-                break;
-        }
-
-
-        if (!pergunta) {
-
-            throw new Error(
-                "O gerador não devolveu uma pergunta."
-            );
-        }
-
-
-        perguntasAtivas.set(
-            chatId,
-            pergunta
-        );
-
-
-        let texto =
-            pergunta.pergunta;
-
-
-        /*
-        =============================================
-        OPÇÕES
-        =============================================
-        */
-
-        if (
-            pergunta.opcoes &&
-            pergunta.opcoes.length
-        ) {
-
-            texto +=
-                "\n\n" +
-
-                pergunta.opcoes
-
-                    .map(
-                        (
-                            opcao,
-                            indice
-                        ) => {
-
-                            const letra =
-                                String.fromCharCode(
-                                    65 + indice
-                                );
-
-                            return (
-                                `${letra}) ${opcao}`
-                            );
-                        }
-                    )
-
-                    .join("\n");
-
-
-            texto +=
-                "\n\n💡 Responde com A, B, C ou D.";
-        }
-
-
-        texto +=
-            "\n\n🏆 Vale 10 pontos.";
-
-
-        bot.sendMessage(
-
-            chatId,
-
-            texto,
-
-            {
-                reply_markup:
-                    menuJogos()
-            }
-
-        ).catch(
-            erro => {
-
-                console.error(
-                    "❌ Erro ao enviar desafio:",
-                    erro.message
-                );
-            }
-        );
-
-
-    } catch (erro) {
-
-        console.error(
-            "❌ Erro ao gerar desafio:",
-            erro
-        );
-
-
-        bot.sendMessage(
-
-            chatId,
-
-            "⚠️ Não consegui criar um desafio novo agora.\n\n" +
-            "Tenta novamente.",
-
-            {
-                reply_markup:
-                    menuJogos()
-            }
-
-        ).catch(
-            () => {}
-        );
-    }
-}
-
+}         
 
 /* =========================================================
    VERIFICAR RESPOSTA
