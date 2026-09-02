@@ -388,140 +388,191 @@ function menuJogos() {
    ENVIAR DESAFIO
 ========================================================= */
 
-function enviarDesafio(
-    msg,
-    tipo
-) {
+function enviarDesafio(msg, tipo) {
 
-    const chatId =
-        msg.chat.id;
-
+    const chatId = msg.chat.id;
 
     try {
 
         let pergunta;
 
-
         switch (tipo) {
 
             case "soma":
-
-                pergunta =
-                    gerarSoma();
-
+                pergunta = gerarSoma();
                 break;
-
 
             case "subtracao":
-
-                pergunta =
-                    gerarSubtracao();
-
+                pergunta = gerarSubtracao();
                 break;
-
 
             case "multiplicacao":
-
-                pergunta =
-                    gerarMultiplicacao();
-
+                pergunta = gerarMultiplicacao();
                 break;
-
 
             case "divisao":
-
-                pergunta =
-                    gerarDivisao();
-
+                pergunta = gerarDivisao();
                 break;
-
 
             case "porcentagem":
-
-                pergunta =
-                    gerarPorcentagem();
-
+                pergunta = gerarPorcentagem();
                 break;
-
 
             case "potencia":
-
-                pergunta =
-                    gerarPotencia();
-
+                pergunta = gerarPotencia();
                 break;
-
 
             case "equacao":
-
-                pergunta =
-                    gerarEquacao();
-
+                pergunta = gerarEquacao();
                 break;
-
 
             case "sequencia":
-
-                pergunta =
-                    gerarSequencia();
-
+                pergunta = gerarSequencia();
                 break;
-
 
             case "charada":
-
-                pergunta =
-                    gerarCharada();
-
+                pergunta = gerarCharada();
                 break;
-
 
             case "vf":
-
-                pergunta =
-                    gerarVerdadeiroFalso();
-
+                pergunta = gerarVerdadeiroFalso();
                 break;
-
 
             case "quiz":
-
-                pergunta =
-                    gerarQuiz();
-
+                pergunta = gerarQuiz();
                 break;
-
 
             case "palavra":
-
-                pergunta =
-                    gerarAdivinhePalavra();
-
+                pergunta = gerarAdivinhePalavra();
                 break;
-
 
             case "parimpar":
-
-                pergunta =
-                    gerarParOuImpar();
-
+                pergunta = gerarParOuImpar();
                 break;
-
 
             case "maior":
-
-                pergunta =
-                    gerarMaiorMenor();
-
+                pergunta = gerarMaiorMenor();
                 break;
-
 
             case "conversao":
-
-                pergunta =
-                    gerarConversao();
-
+                pergunta = gerarConversao();
                 break;
+
+            case "desafio":
+                pergunta = gerarDesafio();
+                break;
+
+            default:
+                pergunta = gerarDesafio();
+                break;
+        }
+
+        if (!pergunta) {
+            throw new Error(
+                "O gerador não devolveu uma pergunta."
+            );
+        }
+
+        perguntasAtivas.set(chatId, pergunta);
+
+        let texto = pergunta.pergunta;
+
+        /*
+        =============================================
+        OPÇÕES COM BOTÕES
+        =============================================
+        */
+
+        let teclado = null;
+
+        if (
+            Array.isArray(pergunta.opcoes) &&
+            pergunta.opcoes.length > 0
+        ) {
+
+            teclado = [];
+
+            pergunta.opcoes.forEach(
+                (opcao, indice) => {
+
+                    const letra =
+                        String.fromCharCode(
+                            65 + indice
+                        );
+
+                    teclado.push([
+                        {
+                            text: `${letra}) ${opcao}`,
+                            callback_data:
+                                `quiz_resposta:${chatId}:${indice}`
+                        }
+                    ]);
+                }
+            );
+
+            texto +=
+                "\n\n👇 *Escolhe uma resposta:*";
+
+        } else {
+
+            texto +=
+                "\n\n✍️ Envia a tua resposta.";
+
+        }
+
+        texto +=
+            "\n\n🏆 Vale 10 pontos.";
+
+        bot.sendMessage(
+            chatId,
+            texto,
+            {
+                parse_mode: "Markdown",
+
+                reply_markup:
+                    teclado
+                        ? {
+                            inline_keyboard:
+                                teclado
+                        }
+                        : menuJogos()
+            }
+        ).catch(
+            erro => {
+
+                console.error(
+                    "❌ Erro ao enviar desafio:",
+                    erro.message
+                );
+
+            }
+        );
+
+    } catch (erro) {
+
+        console.error(
+            "❌ Erro ao gerar desafio:",
+            erro
+        );
+
+        bot.sendMessage(
+            chatId,
+
+            "⚠️ Não consegui criar um desafio novo agora.\n\n" +
+            "Tenta novamente.",
+
+            {
+                reply_markup:
+                    menuJogos()
+            }
+        ).catch(
+            () => {}
+        );
+    }
+        }
+
+
+            
 
 
             /*
@@ -1764,7 +1815,315 @@ Exemplo:
     }
 );
 
+/* =========================================================
+   🎯 RESPOSTAS DOS BOTÕES DO QUIZ
+========================================================= */
 
+bot.on(
+    "callback_query",
+    async query => {
+
+        try {
+
+            const data =
+                query.data || "";
+
+            /*
+            Só tratar os botões do quiz
+            */
+
+            if (
+                !data.startsWith(
+                    "quiz_resposta:"
+                )
+            ) {
+
+                return;
+            }
+
+            const partes =
+                data.split(":");
+
+            const chatId =
+                Number(partes[1]);
+
+            const indice =
+                Number(partes[2]);
+
+            /*
+            =============================================
+            VERIFICAR PERGUNTA ATIVA
+            =============================================
+            */
+
+            const pergunta =
+                perguntasAtivas.get(
+                    chatId
+                );
+
+            if (!pergunta) {
+
+                await bot.answerCallbackQuery(
+                    query.id,
+                    {
+                        text:
+                            "⏰ Esta pergunta já terminou.",
+                        show_alert: true
+                    }
+                );
+
+                return;
+            }
+
+            /*
+            =============================================
+            VERIFICAR OPÇÃO
+            =============================================
+            */
+
+            if (
+                !Array.isArray(
+                    pergunta.opcoes
+                ) ||
+                pergunta.opcoes[indice] === undefined
+            ) {
+
+                await bot.answerCallbackQuery(
+                    query.id,
+                    {
+                        text:
+                            "❌ Opção inválida.",
+                        show_alert: true
+                    }
+                );
+
+                return;
+            }
+
+            /*
+            =============================================
+            VERIFICAR JOGADOR
+            =============================================
+            */
+
+            const jogador = {
+                from: query.from
+            };
+
+            /*
+            =============================================
+            CRIAR OBJETO COMPATÍVEL
+            =============================================
+            */
+
+            jogador.chat = {
+                id: chatId
+            };
+
+            const dadosJogador =
+                obterJogador(
+                    jogador
+                );
+
+            /*
+            =============================================
+            RESPOSTA ESCOLHIDA
+            =============================================
+            */
+
+            const respostaEscolhida =
+                normalizar(
+                    pergunta.opcoes[indice]
+                );
+
+            const respostaCorreta =
+                normalizar(
+                    pergunta.resposta
+                );
+
+            const acertou =
+                respostaEscolhida ===
+                respostaCorreta;
+
+            /*
+            =============================================
+            REGISTAR PARTIDA
+            =============================================
+            */
+
+            dadosJogador.partidas++;
+
+            /*
+            =============================================
+            CORRETA
+            =============================================
+            */
+
+            if (acertou) {
+
+                dadosJogador.acertos++;
+
+                dadosJogador.pontos += 10;
+
+                dadosJogador.sequencia++;
+
+                if (
+                    dadosJogador.sequencia >
+                    dadosJogador.melhorSequencia
+                ) {
+
+                    dadosJogador.melhorSequencia =
+                        dadosJogador.sequencia;
+                }
+
+                let bonus = 0;
+
+                if (
+                    dadosJogador.sequencia >= 5
+                ) {
+
+                    bonus = 10;
+
+                    dadosJogador.pontos +=
+                        bonus;
+                }
+
+                salvarJogadores();
+
+                let mensagem =
+                    "🎉 *CORRETO!*\n\n" +
+                    "✅ Muito bem!\n" +
+                    "⭐ +10 pontos";
+
+                if (bonus) {
+
+                    mensagem +=
+                        `\n🔥 Bónus de sequência: +${bonus}`;
+                }
+
+                mensagem +=
+                    `\n\n🏆 Pontos: ${dadosJogador.pontos}` +
+                    `\n🔥 Sequência: ${dadosJogador.sequencia}`;
+
+                await bot.answerCallbackQuery(
+                    query.id,
+                    {
+                        text: "🎉 Correto! +10 pontos"
+                    }
+                );
+
+                await bot.editMessageText(
+                    pergunta.pergunta +
+                    "\n\n" +
+                    `✅ *Resposta escolhida:* ${pergunta.opcoes[indice]}` +
+                    "\n\n" +
+                    mensagem,
+                    {
+                        chat_id: chatId,
+                        message_id:
+                            query.message.message_id,
+                        parse_mode: "Markdown"
+                    }
+                );
+
+            } else {
+
+                dadosJogador.erros++;
+
+                dadosJogador.sequencia = 0;
+
+                salvarJogadores();
+
+                const indiceCorreto =
+                    pergunta.opcoes.findIndex(
+                        opcao =>
+                            normalizar(opcao) ===
+                            respostaCorreta
+                    );
+
+                let respostaCorretaTexto =
+                    pergunta.resposta;
+
+                if (
+                    indiceCorreto >= 0
+                ) {
+
+                    respostaCorretaTexto =
+                        `${String.fromCharCode(65 + indiceCorreto)}) ` +
+                        `${pergunta.opcoes[indiceCorreto]}`;
+                }
+
+                await bot.answerCallbackQuery(
+                    query.id,
+                    {
+                        text: "❌ Resposta errada!",
+                        show_alert: true
+                    }
+                );
+
+                await bot.editMessageText(
+                    pergunta.pergunta +
+                    "\n\n" +
+                    `❌ *A tua resposta:* ${pergunta.opcoes[indice]}` +
+                    `\n\n✅ *Resposta correta:* ${respostaCorretaTexto}` +
+                    `\n\n🏆 Pontos: ${dadosJogador.pontos}` +
+                    `\n🔥 Sequência: ${dadosJogador.sequencia}`,
+                    {
+                        chat_id: chatId,
+                        message_id:
+                            query.message.message_id,
+                        parse_mode: "Markdown"
+                    }
+                );
+            }
+
+            /*
+            =============================================
+            APAGAR PERGUNTA ATIVA
+            =============================================
+            */
+
+            perguntasAtivas.delete(
+                chatId
+            );
+
+            /*
+            =============================================
+            BOTÃO PARA PRÓXIMA PERGUNTA
+            =============================================
+            */
+
+            await bot.sendMessage(
+                chatId,
+                "👇 Escolhe o que queres fazer agora:",
+                {
+                    reply_markup:
+                        menuJogos()
+                }
+            );
+
+        } catch (erro) {
+
+            console.error(
+                "❌ Erro no botão do quiz:",
+                erro
+            );
+
+            try {
+
+                await bot.answerCallbackQuery(
+                    query.id,
+                    {
+                        text:
+                            "⚠️ Ocorreu um erro. Tenta novamente.",
+                        show_alert: true
+                    }
+                );
+
+            } catch (_) {}
+        }
+    }
+);
 /* =========================================================
    ERROS DO TELEGRAM
 ========================================================= */
