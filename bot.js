@@ -2,7 +2,11 @@ const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
-
+const {
+    responderIA,
+    gerarQuizIA,
+    gerarVerdadeiroFalsoIA
+} = require("./ia");
 const {
     gerarSoma,
     gerarSubtracao,
@@ -1686,7 +1690,72 @@ Exemplo:
 
     }
 );
+// =====================================================
+// 🤖 COMANDO /IA
+// =====================================================
 
+bot.onText(
+    /^\/ia(?:\s+([\s\S]+))?$/,
+    async (msg, match) => {
+
+        const pergunta =
+            match && match[1]
+                ? match[1].trim()
+                : "";
+
+        if (!pergunta) {
+            await bot.sendMessage(
+                msg.chat.id,
+                "🤖 *IA DO GUARDA-CHUVA*\n\n" +
+                "Escreve a tua pergunta depois de /ia.\n\n" +
+                "Exemplo:\n" +
+                "`/ia Quem foi Albert Einstein?`",
+                {
+                    parse_mode: "Markdown"
+                }
+            );
+
+            return;
+        }
+
+        const aguardando =
+            await bot.sendMessage(
+                msg.chat.id,
+                "🤖 Estou a pensar..."
+            );
+
+        try {
+
+            const resposta =
+                await responderIA(pergunta);
+
+            await bot.editMessageText(
+                `🤖 *IA DO GUARDA-CHUVA*\n\n${resposta}`,
+                {
+                    chat_id: msg.chat.id,
+                    message_id: aguardando.message_id,
+                    parse_mode: "Markdown"
+                }
+            );
+
+        } catch (erro) {
+
+            console.error(
+                "Erro na IA:",
+                erro
+            );
+
+            await bot.editMessageText(
+                "❌ Não consegui responder agora.\n" +
+                "Verifica se a GROQ_API_KEY está configurada no Render.",
+                {
+                    chat_id: msg.chat.id,
+                    message_id: aguardando.message_id
+                }
+            );
+        }
+    }
+);
 /* =========================================================
    🎯 RESPOSTAS DOS BOTÕES DO QUIZ
 ========================================================= */
