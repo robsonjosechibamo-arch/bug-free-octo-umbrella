@@ -674,44 +674,51 @@ async function enviarDesafio(msg, tipo) {
         /* =================================================
            ENVIAR PERGUNTA
         ================================================= */
-
-        try {
-
-    await bot.sendMessage(
-        chatId,
-        texto,
-        {
-            parse_mode: "Markdown",
-            reply_markup: teclado
-                ? {
-                    inline_keyboard: teclado
-                }
-                : menuJogos()
-        }
-    );
-
-} catch (erro) {
-
-    console.error(
-        "❌ Erro ao gerar/enviar desafio:",
-        erro
-    );
-
-    try {
-
-        await bot.sendMessage(
+bot.sendMessage(
             chatId,
-            "⚠️ Não consegui criar um desafio novo agora.\n\n" +
-            "Tenta novamente.",
+            texto,
             {
-                reply_markup: menuJogos()
+                parse_mode: "Markdown",
+
+                reply_markup:
+                    teclado
+                        ? {
+                            inline_keyboard:
+                                teclado
+                        }
+                        : menuJogos()
+            }
+        ).catch(
+            erro => {
+
+                console.error(
+                    "❌ Erro ao enviar desafio:",
+                    erro.message
+                );
             }
         );
 
-    } catch (_) {
-        // Ignora se a mensagem de erro também falhar
+} catch (erro) {
+
+        console.error("❌ Erro ao gerar desafio:",
+            erro);
+
+        bot.sendMessage(
+            chatId,
+
+            "⚠️ Não consegui criar um desafio novo agora.\n\n" +
+            "Tenta novamente.",
+
+            {
+                reply_markup:
+                    menuJogos()
+            }
+        ).catch(
+            () => {}
+        );
     }
-        }
+}         
+        
 
 
 /* =========================================================
