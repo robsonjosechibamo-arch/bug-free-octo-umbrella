@@ -698,7 +698,7 @@ bot.sendMessage(
             }
         );
 
-} catch (erro) {
+          } catch (erro) {
 
         console.error("❌ Erro ao gerar desafio:",
             erro);
