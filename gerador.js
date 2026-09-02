@@ -880,134 +880,551 @@ function gerarVerdadeiroFalso() {
 
 /*
 =========================================================
-QUIZ
+🌍 QUIZ DINÂMICO
+=========================================================
+
+O Quiz não depende mais de um pequeno catálogo.
+
+Tipos:
+- Matemática
+- Sequência
+- Porcentagem
+- Ciência
+- Espaço
+- Geografia
+- Conhecimentos gerais
+
+Cada pergunta recebe um ID diferente.
 =========================================================
 */
 
-const quiz = [
+function opcoesQuiz(resposta, alternativas) {
+
+    const lista = [
+        String(resposta),
+        ...alternativas.map(String)
+    ];
+
+    const unicas = [];
+
+    for (const item of lista) {
+
+        if (!unicas.includes(item)) {
+            unicas.push(item);
+        }
+    }
+
+    return embaralhar(unicas.slice(0, 4));
+}
+
+
+function numeroDiferente(valor, distancia = 1) {
+
+    let novo;
+
+    do {
+
+        novo =
+            valor +
+            aleatorio(
+                -Math.max(10, distancia),
+                Math.max(10, distancia)
+            );
+
+    } while (novo === valor);
+
+    return novo;
+}
+
+
+/*
+=========================================================
+🧮 QUIZ DE MATEMÁTICA
+=========================================================
+*/
+
+function quizMatematica() {
+
+    const tipo =
+        aleatorio(1, 4);
+
+    if (tipo === 1) {
+
+        const a =
+            aleatorio(10, 9999);
+
+        const b =
+            aleatorio(10, 9999);
+
+        const resposta =
+            a + b;
+
+        return {
+
+            pergunta:
+                `🧮 Quanto é ${a} + ${b}?`,
+
+            resposta:
+                String(resposta),
+
+            opcoes:
+                opcoesQuiz(
+                    resposta,
+                    [
+                        numeroDiferente(resposta, 20),
+                        numeroDiferente(resposta, 50),
+                        numeroDiferente(resposta, 100)
+                    ]
+                ),
+
+            id:
+                `quiz-soma:${a}:${b}`
+        };
+    }
+
+
+    if (tipo === 2) {
+
+        const a =
+            aleatorio(100, 9999);
+
+        const b =
+            aleatorio(1, a);
+
+        const resposta =
+            a - b;
+
+        return {
+
+            pergunta:
+                `🧮 Quanto é ${a} − ${b}?`,
+
+            resposta:
+                String(resposta),
+
+            opcoes:
+                opcoesQuiz(
+                    resposta,
+                    [
+                        numeroDiferente(resposta, 15),
+                        numeroDiferente(resposta, 30),
+                        numeroDiferente(resposta, 60)
+                    ]
+                ),
+
+            id:
+                `quiz-sub:${a}:${b}`
+        };
+    }
+
+
+    if (tipo === 3) {
+
+        const a =
+            aleatorio(2, 100);
+
+        const b =
+            aleatorio(2, 50);
+
+        const resposta =
+            a * b;
+
+        return {
+
+            pergunta:
+                `🧮 Quanto é ${a} × ${b}?`,
+
+            resposta:
+                String(resposta),
+
+            opcoes:
+                opcoesQuiz(
+                    resposta,
+                    [
+                        numeroDiferente(resposta, 10),
+                        numeroDiferente(resposta, 20),
+                        numeroDiferente(resposta, 40)
+                    ]
+                ),
+
+            id:
+                `quiz-mult:${a}:${b}`
+        };
+    }
+
+
+    const a =
+        aleatorio(2, 30);
+
+    const b =
+        aleatorio(2, 5);
+
+    const resposta =
+        a ** b;
+
+    return {
+
+        pergunta:
+            `🔢 Quanto é ${a}^${b}?`,
+
+        resposta:
+            String(resposta),
+
+        opcoes:
+            opcoesQuiz(
+                resposta,
+                [
+                    numeroDiferente(resposta, 5),
+                    numeroDiferente(resposta, 10),
+                    numeroDiferente(resposta, 20)
+                ]
+            ),
+
+        id:
+            `quiz-pot:${a}:${b}`
+    };
+}
+
+
+/*
+=========================================================
+🔢 QUIZ DE SEQUÊNCIA
+=========================================================
+*/
+
+function quizSequencia() {
+
+    const inicio =
+        aleatorio(1, 1000);
+
+    const passo =
+        aleatorio(2, 100);
+
+    const a = inicio;
+    const b = inicio + passo;
+    const c = inicio + passo * 2;
+    const d = inicio + passo * 3;
+
+    const resposta =
+        inicio + passo * 4;
+
+    return {
+
+        pergunta:
+            `🔢 Qual número completa a sequência?\n\n` +
+            `${a} → ${b} → ${c} → ${d} → ?`,
+
+        resposta:
+            String(resposta),
+
+        opcoes:
+            opcoesQuiz(
+                resposta,
+                [
+                    resposta + passo,
+                    resposta - passo,
+                    resposta + passo * 2
+                ]
+            ),
+
+        id:
+            `quiz-seq:${inicio}:${passo}`
+    };
+}
+
+
+/*
+=========================================================
+📊 QUIZ DE PORCENTAGEM
+=========================================================
+*/
+
+function quizPorcentagem() {
+
+    const porcentagens = [
+        5,
+        10,
+        20,
+        25,
+        50,
+        75
+    ];
+
+    const p =
+        escolha(porcentagens);
+
+    const base =
+        aleatorio(2, 1000);
+
+    const total =
+        base * (100 / gcd(p, 100));
+
+    const resposta =
+        (total * p) / 100;
+
+    return {
+
+        pergunta:
+            `📊 Quanto é ${p}% de ${total}?`,
+
+        resposta:
+            String(resposta),
+
+        opcoes:
+            opcoesQuiz(
+                resposta,
+                [
+                    resposta + base,
+                    Math.max(0, resposta - base),
+                    resposta + base * 2
+                ]
+            ),
+
+        id:
+            `quiz-pct:${p}:${total}`
+    };
+}
+
+
+/*
+=========================================================
+🔬 CIÊNCIA
+=========================================================
+*/
+
+const quizCiencia = [
+
+    [
+        "Qual é a fórmula química da água?",
+        "H2O",
+        ["CO2", "O2", "NaCl"]
+    ],
+
+    [
+        "Qual gás os seres humanos precisam para respirar?",
+        "Oxigénio",
+        ["Hidrogénio", "Hélio", "Azoto"]
+    ],
+
+    [
+        "Qual órgão bombeia o sangue pelo corpo?",
+        "Coração",
+        ["Pulmão", "Fígado", "Estômago"]
+    ],
+
+    [
+        "Qual é o planeta conhecido como Planeta Vermelho?",
+        "Marte",
+        ["Vénus", "Júpiter", "Mercúrio"]
+    ],
+
+    [
+        "Qual é a estrela no centro do Sistema Solar?",
+        "Sol",
+        ["Lua", "Sirius", "Marte"]
+    ],
+
+    [
+        "Qual é o satélite natural da Terra?",
+        "Lua",
+        ["Sol", "Marte", "Vénus"]
+    ],
+
+    [
+        "Qual animal é um mamífero?",
+        "Baleia",
+        ["Tubarão", "Sardinha", "Polvo"]
+    ],
+
+    [
+        "Qual estado da água é representado pelo gelo?",
+        "Sólido",
+        ["Líquido", "Gasoso", "Plasma"]
+    ]
+
+];
+
+
+function quizDeCiencia() {
+
+    const item =
+        escolha(quizCiencia);
+
+    return {
+
+        pergunta:
+            `🔬 CIÊNCIA\n\n${item[0]}`,
+
+        resposta:
+            item[1],
+
+        opcoes:
+            embaralhar([
+                item[1],
+                ...item[2]
+            ]),
+
+        id:
+            `quiz-ciencia:${normalizar(item[0])}`
+    };
+}
+
+
+/*
+=========================================================
+🌍 GEOGRAFIA
+=========================================================
+*/
+
+const quizGeografia = [
 
     [
         "Qual é a capital de Moçambique?",
         "Maputo",
-        ["Maputo", "Beira", "Nampula", "Quelimane"]
+        ["Beira", "Nampula", "Quelimane"]
     ],
 
     [
-        "Qual planeta é conhecido como Planeta Vermelho?",
-        "Marte",
-        ["Vénus", "Marte", "Júpiter", "Mercúrio"]
-    ],
-
-    [
-        "Quantos lados tem um hexágono?",
-        "6",
-        ["5", "6", "7", "8"]
+        "Em que continente fica Moçambique?",
+        "África",
+        ["Ásia", "Europa", "América"]
     ],
 
     [
         "Qual é o maior oceano da Terra?",
         "Pacífico",
-        ["Atlântico", "Índico", "Pacífico", "Ártico"]
-    ],
-
-    [
-        "Qual estrela está no centro do Sistema Solar?",
-        "Sol",
-        ["Lua", "Sol", "Sirius", "Marte"]
-    ],
-
-    [
-        "Quantos minutos tem uma hora?",
-        "60",
-        ["30", "45", "60", "90"]
-    ],
-
-    [
-        "Qual é o símbolo químico do ferro?",
-        "Fe",
-        ["F", "Fe", "Fr", "Ir"]
+        ["Atlântico", "Índico", "Ártico"]
     ],
 
     [
         "Qual é o maior continente?",
         "Ásia",
-        ["África", "Ásia", "Europa", "Oceânia"]
+        ["África", "Europa", "Oceânia"]
     ],
 
     [
-        "Qual é a fórmula química da água?",
-        "H2O",
-        ["CO2", "O2", "H2O", "NaCl"]
+        "Qual país tem o português como língua oficial?",
+        "Brasil",
+        ["Japão", "Egito", "Índia"]
     ],
 
     [
-        "Qual órgão bombeia o sangue?",
-        "Coração",
-        ["Pulmão", "Coração", "Fígado", "Estômago"]
+        "Qual é a capital de Portugal?",
+        "Lisboa",
+        ["Porto", "Madrid", "Paris"]
     ],
 
     [
-        "Qual idioma é oficial em Moçambique?",
-        "Português",
-        ["Português", "Inglês", "Francês", "Espanhol"]
-    ],
+        "Qual continente é atravessado pelo Equador?",
+        "África",
+        ["Europa", "Antártida", "Oceânia"]
+    ]
 
-    [
-        "Qual é o planeta mais próximo do Sol?",
-        "Mercúrio",
-        ["Terra", "Vénus", "Mercúrio", "Marte"]
-    ],
+];
 
-    [
-        "Qual é o maior planeta do Sistema Solar?",
-        "Júpiter",
-        ["Terra", "Saturno", "Júpiter", "Netuno"]
-    ],
 
-    [
-        "Qual animal é conhecido como rei da selva?",
-        "Leão",
-        ["Tigre", "Leão", "Elefante", "Lobo"]
-    ],
+function quizDeGeografia() {
+
+    const item =
+        escolha(quizGeografia);
+
+    return {
+
+        pergunta:
+            `🌍 GEOGRAFIA\n\n${item[0]}`,
+
+        resposta:
+            item[1],
+
+        opcoes:
+            embaralhar([
+                item[1],
+                ...item[2]
+            ]),
+
+        id:
+            `quiz-geografia:${normalizar(item[0])}`
+    };
+}
+
+
+/*
+=========================================================
+📚 CONHECIMENTOS GERAIS
+=========================================================
+*/
+
+const quizGeral = [
 
     [
         "Quantos dias tem uma semana?",
         "7",
-        ["5", "6", "7", "8"]
-    ],
-
-    [
-        "Qual é o resultado de 9 × 9?",
-        "81",
-        ["72", "81", "91", "99"]
-    ],
-
-    [
-        "Qual é o maior mamífero do mundo?",
-        "Baleia-azul",
-        ["Elefante", "Girafa", "Baleia-azul", "Hipopótamo"]
-    ],
-
-    [
-        "Qual é o idioma mais falado no Brasil?",
-        "Português",
-        ["Espanhol", "Português", "Inglês", "Francês"]
-    ],
-
-    [
-        "Qual é o planeta conhecido pelos seus anéis?",
-        "Saturno",
-        ["Marte", "Saturno", "Vénus", "Mercúrio"]
+        ["5", "6", "8"]
     ],
 
     [
         "Quantos meses tem um ano?",
         "12",
-        ["10", "11", "12", "13"]
+        ["10", "11", "13"]
+    ],
+
+    [
+        "Quantos minutos tem uma hora?",
+        "60",
+        ["30", "45", "90"]
+    ],
+
+    [
+        "Qual animal é conhecido como rei da selva?",
+        "Leão",
+        ["Tigre", "Elefante", "Lobo"]
+    ],
+
+    [
+        "Qual é o maior mamífero do mundo?",
+        "Baleia-azul",
+        ["Elefante", "Girafa", "Hipopótamo"]
+    ],
+
+    [
+        "Qual objeto usamos para saber as horas?",
+        "Relógio",
+        ["Bússola", "Tesoura", "Martelo"]
     ]
 
 ];
 
+
+function quizDeConhecimentosGerais() {
+
+    const item =
+        escolha(quizGeral);
+
+    return {
+
+        pergunta:
+            `📚 CONHECIMENTOS GERAIS\n\n${item[0]}`,
+
+        resposta:
+            item[1],
+
+        opcoes:
+            embaralhar([
+                item[1],
+                ...item[2]
+            ]),
+
+        id:
+            `quiz-geral:${normalizar(item[0])}`
+    };
+}
+
+
+/*
+=========================================================
+🌍 GERADOR PRINCIPAL DO QUIZ
+=========================================================
+*/
 
 function gerarQuiz() {
 
@@ -1015,28 +1432,40 @@ function gerarQuiz() {
         "quiz",
         () => {
 
-            const item =
-                escolha(quiz);
+            const tipo =
+                aleatorio(1, 7);
 
-            return {
+            switch (tipo) {
 
-                pergunta:
-                    `🌍 QUIZ\n\n${item[0]}`,
+                case 1:
+                    return quizMatematica();
 
-                resposta:
-                    item[1],
+                case 2:
+                    return quizMatematica();
 
-                opcoes:
-                    embaralhar(
-                        item[2]
-                    ),
+                case 3:
+                    return quizSequencia();
 
-                id:
-                    `quiz:${normalizar(item[0])}`
-            };
+                case 4:
+                    return quizPorcentagem();
+
+                case 5:
+                    return quizDeCiencia();
+
+                case 6:
+                    return quizDeGeografia();
+
+                case 7:
+                    return quizDeConhecimentosGerais();
+
+                default:
+                    return quizMatematica();
+            }
         }
     );
 }
+
+
 
 
 /*
