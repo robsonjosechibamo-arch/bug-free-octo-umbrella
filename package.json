@@ -1,14 +1,14 @@
- {
-  "name": "guarda-chuva-bot",
+{
+  "name": "whatsapp-ai-bot",
   "version": "1.0.0",
-  "description": "Bot de jogos, matemática, charadas e geração de addons Minecraft Bedrock",
-  "main": "bot.js",
+  "description": "Bot WhatsApp com Baileys e Groq AI",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node src/index.js"
   },
   "dependencies": {
-    "node-telegram-bot-api": "^0.66.0",
-    "archiver": "^7.0.1",
-    "groq-sdk": "^0.37.0"
-  } 
+    "@whiskeysockets/baileys": "^7.0.0",
+    "pino": "^9.0.0"
+  }
 }
