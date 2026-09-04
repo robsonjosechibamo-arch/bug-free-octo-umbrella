@@ -1,3 +1,31 @@
+if (!state.creds.registered) {
+    const numero = process.env.WA_NUMBER;
+
+    if (!numero) {
+        throw new Error(
+            "WA_NUMBER não configurada no Render."
+        );
+    }
+
+    const codigo =
+        await sock.requestPairingCode(numero);
+
+    console.log(
+        "================================="
+    );
+
+    console.log(
+        "📱 CÓDIGO DE PAREAMENTO:"
+    );
+
+    console.log(
+        codigo
+    );
+
+    console.log(
+        "================================="
+    );
+}
 const {
     default: makeWASocket,
     useMultiFileAuthState,
