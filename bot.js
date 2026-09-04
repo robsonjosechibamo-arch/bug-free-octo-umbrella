@@ -1,3 +1,9 @@
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
+    fetchLatestBaileysVersion
+} = require("@whiskeysockets/baileys");
 if (!state.creds.registered) {
     const numero = process.env.WA_NUMBER;
 
@@ -26,13 +32,6 @@ if (!state.creds.registered) {
         "================================="
     );
 }
-const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason,
-    fetchLatestBaileysVersion
-} = require("@whiskeysockets/baileys");
-
 const pino = require("pino");
 const fs = require("fs");
 const path = require("path");
