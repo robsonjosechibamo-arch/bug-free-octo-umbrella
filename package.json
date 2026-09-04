@@ -1,14 +1,14 @@
 {
-  "name": "whatsapp-ai-bot",
+  "name": "guarda-chuva-whatsapp",
   "version": "1.0.0",
-  "description": "Bot WhatsApp com Baileys e Groq AI",
+  "description": "Guarda-Chuva Bot - WhatsApp + Baileys + Groq",
   "main": "src/index.js",
-  "type": "module",
   "scripts": {
     "start": "node src/index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0",
+    "@whiskeysockets/baileys": "6.7.23",
+    "groq-sdk": "^0.33.0",
     "pino": "^9.0.0"
   }
 }
