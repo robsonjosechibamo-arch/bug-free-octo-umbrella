@@ -762,41 +762,143 @@ async function iniciarBot() {
 
 
     // =================================================
-    // PAREAMENTO
-    // =================================================
+// PAREAMENTO
+// =================================================
 
-    if (!state.creds.registered) {
+let codigoSolicitado = false;
 
-        const numero = process.env.WA_NUMBER;
+sock.ev.on(
+    "connection.update",
+    async ({ connection, lastDisconnect }) => {
 
-        if (!numero) {
+        console.log(
+            "🔌 Estado da conexão:",
+            connection
+        );
 
-            throw new Error(
-                "❌ WA_NUMBER não configurada no Render."
-            );
+        // =============================================
+        // GERAR CÓDIGO SOMENTE QUANDO ESTIVER CONNECTING
+        // =============================================
+
+        if (
+            connection === "connecting" &&
+            !state.creds.registered &&
+            !codigoSolicitado
+        ) {
+
+            codigoSolicitado = true;
+
+            const numero =
+                process.env.WA_NUMBER;
+
+            if (!numero) {
+
+                console.error(
+                    "❌ WA_NUMBER não configurada no Render."
+                );
+
+                codigoSolicitado = false;
+
+                return;
+            }
+
+            try {
+
+                const codigo =
+                    await sock.requestPairingCode(
+                        numero.replace(/\D/g, "")
+                    );
+
+                console.log("");
+                console.log(
+                    "===================================="
+                );
+                console.log(
+                    "📱 CÓDIGO DE PAREAMENTO"
+                );
+                console.log(
+                    "===================================="
+                );
+                console.log(codigo);
+                console.log(
+                    "===================================="
+                );
+                console.log("");
+
+            } catch (erro) {
+
+                console.error(
+                    "❌ Erro ao gerar código de pareamento:",
+                    erro.message
+                );
+
+                codigoSolicitado = false;
+            }
         }
 
-        try {
+        // =============================================
+        // WHATSAPP CONECTADO
+        // =============================================
+
+        if (connection === "open") {
+
+            console.log("");
+            console.log(
+                "===================================="
+            );
+            console.log(
+                "🟢 WHATSAPP CONECTADO!"
+            );
+            console.log(
+                "===================================="
+            );
+            console.log("");
+        }
+
+        // =============================================
+        // CONEXÃO FECHADA
+        // =============================================
+
+        if (connection === "close") {
 
             const codigo =
-                await sock.requestPairingCode(numero);
+                lastDisconnect?.error?.output
+                    ?.statusCode;
 
-            console.log("");
-            console.log("====================================");
-            console.log("📱 CÓDIGO DE PAREAMENTO");
-            console.log("====================================");
-            console.log(codigo);
-            console.log("====================================");
-            console.log("");
-
-        } catch (erro) {
-
-            console.error(
-                "❌ Erro ao gerar código de pareamento:",
-                erro.message
+            console.log(
+                "🔴 WhatsApp desconectado.",
+                codigo
             );
+
+            if (
+                codigo !== DisconnectReason.loggedOut
+            ) {
+
+                console.log(
+                    "🔄 Tentando reconectar..."
+                );
+
+                setTimeout(() => {
+
+                    iniciarBot().catch(
+                        console.error
+                    );
+
+                }, 5000);
+
+            } else {
+
+                console.log(
+                    "🚪 Sessão encerrada."
+                );
+
+                console.log(
+                    "É necessário parear novamente."
+                );
+            }
         }
     }
+);
 
 
     // =================================================
