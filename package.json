@@ -1,14 +1,14 @@
 {
-  "name": "guarda-chuva-whatsapp",
+  "name": "whatsapp-bot-render",
   "version": "1.0.0",
-  "description": "Guarda-Chuva Bot - WhatsApp + Baileys + Groq",
-  "main": "src/index.js",
+  "description": "Bot de WhatsApp com Pairing Code no Render",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "6.7.23",
-    "groq-sdk": "^0.33.0",
-    "pino": "^9.0.0"
+    "@whiskeysockets/baileys": "^6.7.5",
+    "pino": "^8.0.0",
+    "qrcode-terminal": "^0.12.0"
   }
 }
