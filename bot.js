@@ -761,24 +761,30 @@ async function iniciarBot() {
     );
 
 
-    // =================================================
-// PAREAMENTO
+
+// =================================================
+// PAREAMENTO WHATSAPP
 // =================================================
 
 let codigoSolicitado = false;
 
 sock.ev.on(
     "connection.update",
-    async ({ connection, lastDisconnect }) => {
+    async (update) => {
+
+        const {
+            connection,
+            lastDisconnect
+        } = update;
 
         console.log(
             "🔌 Estado da conexão:",
             connection
         );
 
-        // =============================================
-        // GERAR CÓDIGO SOMENTE QUANDO ESTIVER CONNECTING
-        // =============================================
+        // =========================================
+        // SOLICITAR CÓDIGO DE PAREAMENTO
+        // =========================================
 
         if (
             connection === "connecting" &&
@@ -804,6 +810,16 @@ sock.ev.on(
 
             try {
 
+                console.log(
+                    "⏳ Aguardando conexão do WhatsApp..."
+                );
+
+                // IMPORTANTE:
+                // esperar o socket estabilizar
+                await new Promise(
+                    resolve => setTimeout(resolve, 3000)
+                );
+
                 const codigo =
                     await sock.requestPairingCode(
                         numero.replace(/\D/g, "")
@@ -823,59 +839,65 @@ sock.ev.on(
                 console.log(
                     "===================================="
                 );
+                console.log(
+                    "📲 No WhatsApp:"
+                );
+                console.log(
+                    "Dispositivos conectados → Conectar dispositivo"
+                );
+                console.log(
+                    "===================================="
+                );
                 console.log("");
 
             } catch (erro) {
 
                 console.error(
                     "❌ Erro ao gerar código de pareamento:",
-                    erro.message
+                    erro?.message || erro
                 );
 
                 codigoSolicitado = false;
             }
         }
 
-        // =============================================
-        // WHATSAPP CONECTADO
-        // =============================================
+        // =========================================
+        // CONECTADO
+        // =========================================
 
         if (connection === "open") {
 
             console.log("");
             console.log(
-                "===================================="
-            );
-            console.log(
                 "🟢 WHATSAPP CONECTADO!"
-            );
-            console.log(
-                "===================================="
             );
             console.log("");
         }
 
-        // =============================================
-        // CONEXÃO FECHADA
-        // =============================================
+        // =========================================
+        // DESCONECTADO
+        // =========================================
 
         if (connection === "close") {
 
-            const codigo =
-                lastDisconnect?.error?.output
+            const statusCode =
+                lastDisconnect
+                    ?.error
+                    ?.output
                     ?.statusCode;
 
             console.log(
                 "🔴 WhatsApp desconectado.",
-                codigo
+                statusCode
             );
 
             if (
-                codigo !== DisconnectReason.loggedOut
+                statusCode !==
+                DisconnectReason.loggedOut
             ) {
 
                 console.log(
-                    "🔄 Tentando reconectar..."
+                    "🔄 Tentando reconectar em 5 segundos..."
                 );
 
                 setTimeout(() => {
