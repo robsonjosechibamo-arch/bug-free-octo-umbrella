@@ -1,6 +1,20 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
+const express = require('express');
 
+// 1. Configura um servidor HTTP simples para o Render não derrubar o Web Service
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('🤖 Bot do WhatsApp está rodando com sucesso no Render!');
+});
+
+app.listen(PORT, () => {
+    console.log(`Servidor HTTP ouvindo na porta ${PORT}`);
+});
+
+// 2. Lógica do Bot do WhatsApp
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
     
@@ -8,7 +22,7 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
         auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"] // Simula um navegador padrão para evitar bloqueios
+        browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -27,7 +41,7 @@ async function startBot() {
         }
     });
 
-    // Se não estiver registrado, solicita o código assim que o canal WebSocket estiver pronto
+    // Solicita o código de pareamento se não estiver registrado
     if (!sock.authState.creds.registered) {
         const phoneNumber = process.env.PHONE_NUMBER;
         
@@ -36,7 +50,6 @@ async function startBot() {
             return;
         }
 
-        // Aguarda 8 segundos para garantir que o socket estabeleceu comunicação
         setTimeout(async () => {
             try {
                 console.log(`Solicitando código de pareamento para: ${phoneNumber}`);
@@ -59,7 +72,7 @@ async function startBot() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
 
         if (text && text.toLowerCase() === 'ping') {
-            await sock.sendMessage(sender, { text: 'Pong! 🤖 Bot ativo.' });
+            await sock.sendMessage(sender, { text: 'Pong! 🤖 Bot ativo no Web Service.' });
         }
     });
 }
