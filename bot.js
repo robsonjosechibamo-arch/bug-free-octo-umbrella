@@ -1,324 +1,67 @@
-const http = require("http");
-const path = require("path");
-const pino = require("pino");
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const pino = require('pino');
 
-const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason
-} = require("@whiskeysockets/baileys");
-
-
-// =====================================================
-// CONFIGURAÇÕES
-// =====================================================
-
-const PORT = process.env.PORT || 3000;
-
-const AUTH_DIR = path.join(
-    __dirname,
-    "auth_info_baileys"
-);
-
-
-// =====================================================
-// SERVIDOR HTTP DO RENDER
-// =====================================================
-
-http.createServer((req, res) => {
-
-    res.writeHead(200, {
-        "Content-Type": "text/plain; charset=utf-8"
-    });
-
-    res.end(
-        "🟢 Teste WhatsApp Baileys funcionando!"
-    );
-
-}).listen(
-    PORT,
-    "0.0.0.0",
-    () => {
-
-        console.log(
-            `🌐 Servidor ativo na porta ${PORT}`
-        );
-
-    }
-);
-
-
-// =====================================================
-// INICIAR WHATSAPP
-// =====================================================
-
-async function iniciarWhatsApp() {
-
-    console.log("");
-    console.log("====================================");
-    console.log("🚀 INICIANDO TESTE WHATSAPP");
-    console.log("====================================");
-
-
-    const {
-        state,
-        saveCreds
-    } = await useMultiFileAuthState(AUTH_DIR);
-
-
-    console.log(
-        "🔐 Sessão registrada:",
-        state.creds.registered
-    );
-
-
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
+    
     const sock = makeWASocket({
-
-        auth: state,
-
-        logger: pino({
-            level: "silent"
-        }),
-
+        logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-
-        browser: [
-            "Guarda-Chuva Teste",
-            "Chrome",
-            "1.0.0"
-        ]
-
+        auth: state
     });
 
-
-    // =================================================
-    // SALVAR CREDENCIAIS
-    // =================================================
-
-    sock.ev.on(
-        "creds.update",
-        saveCreds
-    );
-
-
-    // =================================================
-    // CONEXÃO
-    // =================================================
-
-    let codigoSolicitado = false;
-
-    sock.ev.on(
-        "connection.update",
-        async (update) => {
-
-            console.log(
-                "📡 connection.update:",
-                JSON.stringify(
-                    update,
-                    null,
-                    2
-                )
-            );
-
-
-            const {
-                connection,
-                lastDisconnect
-            } = update;
-
-
-            // =========================================
-            // CONECTANDO
-            // =========================================
-
-            if (
-                connection === "connecting" &&
-                !state.creds.registered &&
-                !codigoSolicitado
-            ) {
-
-                codigoSolicitado = true;
-
-
-                const numero =
-                    process.env.WA_NUMBER;
-
-
-                if (!numero) {
-
-                    console.error(
-                        "❌ WA_NUMBER não está configurada."
-                    );
-
-                    return;
-                }
-
-
-                try {
-
-                    console.log("");
-                    console.log(
-                        "⏳ WhatsApp está conectando..."
-                    );
-
-                    console.log(
-                        "⏳ Aguardando 3 segundos..."
-                    );
-
-
-                    await new Promise(
-                        resolve =>
-                            setTimeout(
-                                resolve,
-                                3000
-                            )
-                    );
-
-
-                    console.log(
-                        "📱 Solicitando código..."
-                    );
-
-
-                    const codigo =
-                        await sock.requestPairingCode(
-                            numero.replace(
-                                /\D/g,
-                                ""
-                            )
-                        );
-
-
-                    console.log("");
-                    console.log(
-                        "===================================="
-                    );
-                    console.log(
-                        "📱 CÓDIGO DE PAREAMENTO"
-                    );
-                    console.log(
-                        "===================================="
-                    );
-                    console.log(codigo);
-                    console.log(
-                        "===================================="
-                    );
-                    console.log("");
-
-
-                } catch (erro) {
-
-                    console.error("");
-                    console.error(
-                        "❌ ERRO NO PAREAMENTO:"
-                    );
-                    console.error(
-                        erro?.stack ||
-                        erro?.message ||
-                        erro
-                    );
-                    console.error("");
-
-                    codigoSolicitado = false;
-                }
-            }
-
-
-            // =========================================
-            // CONECTADO
-            // =========================================
-
-            if (connection === "open") {
-
-                console.log("");
-                console.log(
-                    "===================================="
-                );
-                console.log(
-                    "🟢 WHATSAPP CONECTADO COM SUCESSO!"
-                );
-                console.log(
-                    "===================================="
-                );
-                console.log("");
-
-            }
-
-
-            // =========================================
-            // DESCONECTADO
-            // =========================================
-
-            if (connection === "close") {
-
-                const codigo =
-                    lastDisconnect
-                        ?.error
-                        ?.output
-                        ?.statusCode;
-
-
-                console.log("");
-                console.log(
-                    "🔴 WHATSAPP DESCONECTADO"
-                );
-                console.log(
-                    "Código:",
-                    codigo
-                );
-                console.log("");
-
-
-                if (
-                    codigo ===
-                    DisconnectReason.loggedOut
-                ) {
-
-                    console.log(
-                        "🚪 Sessão encerrada."
-                    );
-
-                    console.log(
-                        "É necessário fazer um novo pareamento."
-                    );
-
-                    return;
-                }
-
-
-                console.log(
-                    "🔄 Reiniciando conexão em 5 segundos..."
-                );
-
-
-                setTimeout(() => {
-
-                    iniciarWhatsApp()
-                        .catch(console.error);
-
-                }, 5000);
-            }
-
+    // Se não estiver conectado, pega o número direto das Variáveis de Ambiente do Render
+    if (!sock.authState.creds.registered) {
+        const phoneNumber = process.env.PHONE_NUMBER;
+        
+        if (!phoneNumber) {
+            console.log('❌ ERRO: A variável de ambiente PHONE_NUMBER não foi configurada no Render!');
+            return;
         }
-    );
 
+        console.log(`Solicitando código de pareamento para o número: ${phoneNumber}...`);
+        
+        // Pequeno atraso para garantir que a conexão iniciou corretamente
+        setTimeout(async () => {
+            try {
+                let code = await sock.requestPairingCode(phoneNumber.trim());
+                code = code?.match(/.{1,4}/g)?.join('-') || code;
+                console.log(`\n========================================`);
+                console.log(`👉 SEU CÓDIGO DE VÍNCULO: ${code}`);
+                console.log(`========================================\n`);
+            } catch (error) {
+                console.log('Erro ao gerar o código de pareamento:', error);
+            }
+        }, 3000);
+    }
+
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
+        if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
+            console.log('Conexão fechada. Reconectando...', shouldReconnect);
+            if (shouldReconnect) {
+                startBot();
+            }
+        } else if (connection === 'open') {
+            console.log('✅ Bot conectado com sucesso no WhatsApp!');
+        }
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    // Exemplo de resposta simples a mensagens
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+
+        const sender = msg.key.remoteJid;
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+
+        if (text && text.toLowerCase() === 'ping') {
+            await sock.sendMessage(sender, { text: 'Pong! 🤖 O bot no Render está ativo.' });
+        }
+    });
 }
 
-
-// =====================================================
-// INICIAR
-// =====================================================
-
-iniciarWhatsApp().catch(
-    erro => {
-
-        console.error(
-            "❌ ERRO FATAL:"
-        );
-
-        console.error(
-            erro
-        );
-
-    }
-);
+startBot();
