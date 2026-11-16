@@ -1,7 +1,7 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 
-// Banco de perguntas de exemplo (você pode adicionar quantas quiser depois)
+// Banco de perguntas do Quiz
 const perguntas = [
   {
     pergunta: "Qual é a linguagem de programação mais popular para criar bots de automação e IA?",
@@ -28,11 +28,30 @@ async function iniciarBot() {
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true,
         logger: pino({ level: 'silent' })
     });
 
     sock.ev.on('creds.update', saveCreds);
+
+    // Se o bot ainda não estiver conectado/registrado, gera o código automaticamente usando o número abaixo
+    if (!sock.authState.creds.registered) {
+        // ⚠️ COLOQUE O SEU NÚMERO AQUI COM O CÓDIGO DO PAÍS (Ex: Moçambique = 258, seguido do seu número)
+        const phoneNumber = "258853961088"; // <-- SUBSTITUA PELO SEU NÚMERO REAL
+        
+        console.log(`\n🔄 A solicitar código de emparelhamento para o número: ${phoneNumber}...\n`);
+        
+        // Pequeno atraso para garantir que a conexão iniciou
+        setTimeout(async () => {
+            try {
+                const code = await sock.requestPairingCode(phoneNumber);
+                console.log(`\n========================================`);
+                console.log(`🔑 O SEU CÓDIGO DE EMPARELHAMENTO É: ${code}`);
+                console.log(`========================================\n`);
+            } catch (error) {
+                console.error("Erro ao gerar o código:", error);
+            }
+        }, 4000);
+    }
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
@@ -116,4 +135,3 @@ async function iniciarBot() {
 }
 
 iniciarBot();
-
